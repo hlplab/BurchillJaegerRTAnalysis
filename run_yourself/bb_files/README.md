@@ -1,0 +1,2 @@
+
+The `bb_files` directory will hold the 'bare bones' BATA files: essentially lists of sampling indices of the full data files. When used, the code will "flesh out" the BB files, joining in the actual data, and only then can analyses be run on them.

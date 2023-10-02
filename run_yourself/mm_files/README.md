@@ -1,0 +1,2 @@
+
+The `mm_files` directory will hold the summarized results of the mixed model ("mm") analyses run on the BATAs. In order to save space, these summarized results do not include the full model objects, but just data frames of the important result values.
