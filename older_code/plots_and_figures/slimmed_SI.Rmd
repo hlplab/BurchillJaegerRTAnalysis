@@ -1,0 +1,2366 @@
+---
+title: "Supplementary Information"
+header-includes:
+author: "Zachary Burchill and T. Florian Jaeger"
+date: \today
+output:
+  officedown::rdocx_document:
+    df_print: paged
+    page_size:
+      width: 8.5
+      height: 11
+    page_margins:
+      bottom: 1
+      top: 1
+      right: 1.25
+      left: 1.25
+      gutter: 0
+    tables:
+      caption:
+        style: Caption
+        fp_text: !expr officer::fp_text_lite()
+    plots:
+      fig.lp: 'Figure:'
+      caption:
+        style: Caption
+        fp_text: !expr officer::fp_text_lite()
+    fig_caption: true
+    number_sections: false
+editor_options:
+  chunk_output_type: console
+---
+ 
+```{r setup, include=FALSE, warning=FALSE, message=FALSE}
+knitr::opts_chunk$set(echo = FALSE)
+tictoc::tic()
+
+knitr::opts_chunk$set(echo = FALSE, message=FALSE, warning=FALSE)
+options(kableExtra.latex.load_packages = FALSE)
+
+# NEED TO CHANGE THIS TO CURRENT PATH OF GIT DIRECTORY
+base_path <- "~/Box Sync/Power simulations for RTs/PowerSimulations/BurchillJaegerRTAnalysis/"
+
+cur_dir <- paste0(base_path, "older_code/plots_and_figures/")
+data_path <- paste0(path, "older_code/older_data/")
+image_save_path <-  cur_dir
+# Needs the new path for the new data
+new_path <- paste0(base_path, "run_yourself/collated_files/")
+
+
+source(paste0(cur_dir, "SI_functions_and_constants.R"))
+library(mgcv)
+
+
+fig_width = 6#5
+fig_height = 2.86#2.5
+
+knitr::opts_chunk$set(fig.width = fig_width, fig.height = fig_height)
+
+```
+
+```{r word exporting stuff}
+library(flextable)
+
+# Set defaults
+set_flextable_defaults(table.layout="autofit",
+                       font.family="Times New Roman")
+
+# The function I made to replace knitr::kable
+zachs_kable_sub <- function(tb, ..., label, caption, seq_id="Table") {
+  tb %>%
+    flextable::flextable() %>%
+    flextable::set_caption(caption, 
+  autonum = officer::run_autonum(seq_id = seq_id, bkm = label),
+  word_stylename="Caption",
+  align_with_table=FALSE,
+  fp_p = officer::fp_par(text.align="left")
+  )
+}
+
+# Format the omnibus stuff
+omni_formatter_ft <- function(ft) {
+  ft <- compose(ft, i = 1, j=2, part = "header",
+    value = as_paragraph("Δ", as_sub("df")))
+  ft <- compose(ft, i = 1, j=3, part = "header",
+    value = as_paragraph("Δ", as_sub("dev")))
+  ft <- compose(ft, i = 1, j=4, part = "header",
+    value = as_paragraph(as_i("p")))
+  return(ft)
+}
+
+```
+
+```{r loading giant functions}
+reran_n_times=112
+giant_grouping_vars <- quos(SampleName, Nsubj, Nitems, EffectSizeName, EffectSize, RType, Space, Bin)
+nsc_giant_grouping_vars <- quos(Nstories, !!!giant_grouping_vars)
+giant_grouping_vars_without_effectsize <- quos(SampleName, Nsubj, Nitems, RType, Space, Bin)
+
+giant_cleaner <- function(df) {
+  df %>%
+    as_tibble() %>%
+    mutate(EffectSizeName = collapse_effect_sizes(EffectSize),
+           EffectSize = factor(EffectSize),
+           SampleName = factor(ifelse(grepl("noexcl", SampleName), "pre-exclusion", "post-exclusion"))) 
+}
+
+resid_cleaner <- function(df, name) {
+  df %>%
+    as_tibble() %>%
+    # filter(Space == "") %>%
+    mutate(EffectSizeName = collapse_effect_sizes(EffectSize),
+           EffectSize = factor(EffectSize),
+           SampleName = name) #%>%
+    # select(-Space, -Bin)
+}
+
+combine_dfs <- function(unresidualized, resid_df, region_df,
+                        levels = c("pre-exclusion", "post-exclusion", "residualized", "3-word region")) {
+  bind_rows(unresidualized, resid_df, region_df) %>%
+    mutate(SampleName = factor(SampleName, levels=levels)) %>%
+    mutate(EffectSize = factor(EffectSize, levels=c("15","35","56","80")))
+}
+```
+
+
+# README Explanation
+
+This Rmd file was written to generate an SI section Zachary Burchill's PhD thesis. Much was changed since then, including what was included in the thesis itself. An attempt has been made to remove unnecessary (and now possibly wrong or outdated) text, but old terminology and outdated results may still exist in places.
+
+To be clear, this file is shared for those who are interested in digging in to how the plots were generated for the manuscript, but will probably not run easily out-of-the-box.
+
+The code of how the descriptive statistics and the omnibus Chi-square tests were calculated is only included for Study 2 (Study 1 here) for the HS18 data. The same methods were used for the other studies.
+
+# Important to know:
+
+## Most of the plots used in the non-SI portion of the paper are generated from a child .Rmd file
+
+That file can be seen being called at the end of the document and is dependent on the code in this SI file.
+
+## The HS18 and F13 data are referred to with different names in the code
+
+As described elsewhere, "SETAL" (Stack et. al) or "reg" refers to the HS18 data and "FETAL" (Fine et. al) refers to the F13 data.
+
+## The study names have changed
+
+The names of the studies changed in the final version of the paper. Study 1 here is Study 2 in the manuscript, Study 2 here is Study 3, and Study 3 here is Study 2d. The log-shift analyses were added to Study 2 (in the manuscript) at the very end, and may possibly break certain aspects of the code or plots. This can be remedied by removing those rows from the summarized data frames in Study 2.
+
+<!-- Introduction data -->
+
+```{r load distro files,cache=TRUE}
+rerun=3
+setal_all_RTs <- readRDS(paste0(data_path, "Stack-Exp2-OSF-060818-after bad subject & items exclusions.RDS")) %>%
+  select(Subject,Item, Structure, Group, Trial.Order, Word.Order, Word.Length, RT)
+setal_excl <- readRDS(paste0(data_path, "Stack-Exp2-OSF-060818-after bad subject & items exclusions + RT-based exclusions.RDS")) %>%
+  select(Subject, Item, Structure, Region, Group, Trial.Order, Word.Order, Word.Length, RT)
+
+fetal_all_RTs  <- readRDS(paste0(data_path, "Fine-Exp2-before any exclusions.RDS")) %>%
+  select(Subject,Item, Structure, Region, Group, Trial.Order, Word.Order, Word.Length, RT)
+fetal_excl  <- readRDS(paste0(data_path, "Fine-Exp2-after RT-based exclusions.RDS")) %>%
+  select(Subject,Item, Structure, Region, Group, Trial.Order, Word.Order, Word.Length, RT)
+
+nsc_all_RTs <-  readRDS(paste0(data_path, "nsc_sim_df_no_RT_exclusions.RDS")) %>%
+  select(Subject,Item, Story, Trial.Order, Word.Order, Word.Length, RT)
+nsc_excl <-  readRDS(paste0(data_path, "nsc_sim_df.RDS")) %>%
+  select(Subject,Item, Story, Trial.Order, Word.Order, Word.Length, RT)
+
+```
+
+```{r residualize setal, cache=TRUE}
+rerun=4
+setal_wl_correction <- lme4::lmer(RT ~ Word.Length + (1 + Word.Length | Subject),
+                            data = setal_excl,
+                            control = lme4::lmerControl(optimizer="bobyqa"))
+setal_excl$PredictedWLRT <- predict(setal_wl_correction) %>% `attributes<-`(NULL)
+setal_excl$WLResid <- setal_excl$RT - setal_excl$PredictedWLRT
+
+setal_wl_log_correction <- lme4::lmer(log10(RT) ~ Word.Length + (1 + Word.Length | Subject),
+                                data = setal_excl,
+                                control = lme4::lmerControl(optimizer="bobyqa"))
+setal_excl$PredictedWLLogRT <- predict(setal_wl_log_correction) %>% `attributes<-`(NULL)
+setal_excl$WLLogResid <- log10(setal_excl$RT) - setal_excl$PredictedWLLogRT
+```
+
+```{r residualize fetal, cache=TRUE}
+rerun=5
+fetal_wl_correction <- lme4::lmer(RT ~ Word.Length + (1 + Word.Length | Subject),
+                            data = fetal_excl,
+                            control = lme4::lmerControl(optimizer="bobyqa"))
+fetal_excl$PredictedWLRT <- predict(fetal_wl_correction) %>% `attributes<-`(NULL)
+fetal_excl$WLResid <- fetal_excl$RT - fetal_excl$PredictedWLRT
+```
+
+```{r residualize nsc, cache=TRUE}
+rerun=1
+nsc_wl_correction <- lme4::lmer(RT ~ Word.Length + (1 + Word.Length | Subject),
+                            data = nsc_excl,
+                            control = lme4::lmerControl(optimizer="bobyqa"))
+nsc_excl$PredictedWLRT <- predict(nsc_wl_correction) %>% `attributes<-`(NULL)
+nsc_excl$WLResid <- nsc_excl$RT - nsc_excl$PredictedWLRT
+```
+
+```{r filler-item-ratio data, cache=TRUE}
+rerun=1
+summarized_fillitemtest <- readRDS(paste0(data_path, "differing_filleritem_ratios.RDS")) %>%
+  as_tibble() %>%
+  resid_cleaner("residualized filler-item test") %>%
+  summarise_mixed_dfs(!!!giant_grouping_vars, FillerItemRatio)
+```
+
+<!-- Study 1 data -->
+
+```{r load and process setal files, cache=TRUE}
+rerun=3
+
+reg_giant_raw <- readRDS(paste0(data_path, "giant_mixed_models_lmerTest_new.RDS")) %>%
+  giant_cleaner()
+reg_resid_raw <- readRDS(paste0(data_path, "residualized_mixed_models_lmerTest_new.RDS")) %>%
+  resid_cleaner("residualized")
+reg_region_raw <- readRDS(paste0(data_path, "regionized_free_mixed_models_lmerTest.RDS")) %>%
+  resid_cleaner("3-word region")
+ 
+reg_all <- combine_dfs(reg_giant_raw, reg_resid_raw, reg_region_raw) %>%
+  filter(Space=="")
+summarized_reg_data   <- summarise_mixed_dfs(reg_all,   !!!giant_grouping_vars)
+
+reg_giant_warnings <- reg_all %>%
+  break_down_conditions(!!!giant_grouping_vars,
+    col = warnings, 
+    replacement_list = c("Model failed to converge with 1 negative eigenvalue: .*"="Model failed to converge with 1 negative eigenvalue: X")) %>%
+  filter(!grepl("simpleWarning in bind_rows_", warnings))
+reg_giant_messages <- reg_all %>%
+  break_down_conditions(!!!giant_grouping_vars,
+                        col = messages)
+reg_giant_errors <- reg_all %>%
+  break_down_conditions(!!!giant_grouping_vars,
+                        col = errors)
+rm(reg_giant_raw, reg_resid_raw, reg_region_raw, reg_all)
+```
+
+```{r load and process fetal files, cache=TRUE}
+rerun=2
+fetal_giant_raw <- readRDS(paste0(data_path, "fetal_giant_mixed_models_lmerTest_new.RDS")) %>% 
+  giant_cleaner()
+fetal_resid_raw <- readRDS(paste0(data_path, "fetal_residualized_mixed_models_lmerTest.RDS")) %>%
+  resid_cleaner("residualized")
+fetal_region_raw <- readRDS(paste0(data_path, "fetal_regionized_mixed_models_lmerTest_new.RDS"))  %>%
+  resid_cleaner("3-word region")
+
+
+fetal_all <- combine_dfs(fetal_giant_raw, fetal_resid_raw, fetal_region_raw) %>%
+  filter(Space=="")
+summarized_fetal_data <- summarise_mixed_dfs(fetal_all, !!!giant_grouping_vars)
+
+fetal_giant_warnings <- fetal_all %>%
+  break_down_conditions(!!!giant_grouping_vars,
+    col = warnings, replacement_list = c("Model failed to converge with 1 negative eigenvalue: .*"="Model failed to converge with 1 negative eigenvalue: X")) %>%
+  filter(!grepl("simpleWarning in bind_rows_", warnings))
+fetal_giant_messages <- fetal_all %>%
+  break_down_conditions(!!!giant_grouping_vars,
+                        col = messages)
+fetal_giant_errors <- fetal_all %>%
+  break_down_conditions(!!!giant_grouping_vars,
+                        col = errors)
+
+rm(fetal_giant_raw, fetal_resid_raw, fetal_region_raw, fetal_all)
+```
+
+```{r load and process nsc files, cache=TRUE}
+rerun=4
+nsc_giant_raw <- readRDS(paste0(data_path, "nsc_giant_mixed_models_lmerTest_new.RDS")) %>%
+  giant_cleaner() %>% filter(Nsubj <= 64)
+nsc_resid_raw <- readRDS(paste0(data_path, "nsc_residualized_mixed_models_lmerTest.RDS")) %>%
+  resid_cleaner("residualized")
+nsc_region_raw <- readRDS(paste0(data_path, "nsc_regionized_mixed_models_lmerTest.RDS")) %>%
+  resid_cleaner("3-word region")
+
+nsc_all <- combine_dfs(nsc_giant_raw, nsc_resid_raw, nsc_region_raw) %>%
+  filter(Space=="") %>% filter(Nsubj <= 64)
+summarized_nsc_data   <- summarise_mixed_dfs(nsc_all,   !!!nsc_giant_grouping_vars)
+
+nsc_giant_warnings <- nsc_all %>%
+  break_down_conditions(!!!nsc_giant_grouping_vars,
+    col = warnings, replacement_list = c("Model failed to converge with 1 negative eigenvalue: .*"="Model failed to converge with 1 negative eigenvalue: X")) %>%
+  filter(!grepl("simpleWarning in bind_rows_", warnings))
+nsc_giant_messages <- nsc_all %>%
+  break_down_conditions(!!!giant_grouping_vars,
+                        col = messages)
+nsc_giant_errors <- nsc_all %>%
+  break_down_conditions(!!!giant_grouping_vars,
+                        col = errors)
+
+rm(nsc_giant_raw, nsc_resid_raw, nsc_region_raw, nsc_all)
+
+```
+
+<!-- This is newer stuff, adding in the log-shift analyses -->
+
+```{r logshift stuff}
+
+k_fixer <- function(df, ..., k_lim=10000) {
+  qs <- enquos(...)
+  df %>% 
+    group_by(type, !!!qs) %>%
+    arrange(k) %>%
+    mutate(k2 = seq_along(k)) %>%
+    filter(k2 <= k_lim) %>%
+    select(-k2) %>%
+    ungroup()
+}
+
+
+x_giant_raw  <- readRDS(paste0(new_path, "logshift_sfetal_v01.RDS")) %>%
+  giant_cleaner() %>%
+  k_fixer(!!!giant_grouping_vars, Dataset)
+
+x_resid_raw  <- readRDS(paste0(new_path, "logshift_sfetal_residualized_v01.RDS")) %>%
+  mutate(Dataset = case_when(grepl("fetal",real_df_file)~"fetal",
+                             grepl("setal",real_df_file)~"setal",
+                             TRUE~NA_character_)) %>%
+  resid_cleaner("residualized") %>%
+  k_fixer(!!!giant_grouping_vars, Dataset)
+
+x_region_raw <- readRDS(paste0(new_path, "logshift_sfetal_regionized_v01.RDS")) %>%
+  mutate(Dataset = case_when(grepl("fetal",real_df_file)~"fetal",
+                             grepl("setal",real_df_file)~"setal",
+                             TRUE~NA_character_)) %>%
+  resid_cleaner("3-word region") %>%
+  k_fixer(!!!giant_grouping_vars, Dataset)
+
+
+x_all <- combine_dfs(x_giant_raw, x_resid_raw, x_region_raw) %>%
+  filter(Space=="")
+
+summarized_x_data   <- summarise_mixed_dfs(x_all, !!!giant_grouping_vars, Dataset) %>%
+  filter(Analysis=="lgshift")
+
+rm(x_giant_raw, x_resid_raw, x_region_raw, x_all)
+
+
+
+nsc2_giant_raw  <- readRDS(paste0(new_path, "logshift_nsc_v01.RDS")) %>%
+  giant_cleaner()
+
+nsc2_resid_raw  <- readRDS(paste0(new_path, "logshift_nsc_residualized_v01.RDS")) %>%
+  resid_cleaner("residualized")
+
+nsc2_region_raw <- readRDS(paste0(new_path, "logshift_nsc_regionized_v01.RDS")) %>%
+  resid_cleaner("3-word region")
+
+nsc2_all <- combine_dfs(nsc2_giant_raw, nsc2_resid_raw, nsc2_region_raw) %>%
+  filter(Space=="")
+
+summarized_nsc2_data   <- summarise_mixed_dfs(nsc2_all, !!!giant_grouping_vars, Dataset) %>%
+  filter(Analysis=="lgshift")
+
+rm(nsc2_giant_raw, nsc2_resid_raw, nsc2_region_raw, nsc2_all)
+
+```
+
+
+```{r add-in-the-new-data}
+
+summarized_reg_data <- summarized_x_data %>%
+  filter(Dataset=="setal") %>%
+  bind_rows(summarized_reg_data)
+
+summarized_fetal_data <- summarized_x_data %>%
+  filter(Dataset=="fetal") %>%
+  bind_rows(summarized_fetal_data)
+
+summarized_nsc_data <- summarized_nsc2_data %>%
+  mutate(Nstories=4, Nitems=Nsubj) %>%
+  bind_rows(summarized_nsc_data)
+
+rm(summarized_x_data)
+rm(summarized_nsc2_data)
+
+```
+
+<!-- Study 2-2.5 data -->
+
+```{r load and process para files, cache=TRUE}
+rerun=1
+para_grouping_vars <- quos(SampleName, RType, Nsubj, Nitems, Space, EffectSize, EffectSizeName, Distribution, Bin)
+para_grouping_vars_without_effectsize <- quos(SampleName, RType, Nsubj, Nitems, Space, Distribution, Bin)
+
+para_mm_raw <- readRDS(paste0(data_path, "parametric_giant_lmerTest_new.RDS")) %>%  
+  as_tibble() %>%
+  mutate(Distribution = ifelse(grepl("gaussian_para", Distribution), 
+                               "Parametric normal", "Parametric log-normal") %>%
+           factor(levels=c("Parametric normal", "Parametric log-normal")),
+         EffectSizeName = collapse_effect_sizes(EffectSize),
+         EffectSize = factor(EffectSize))
+summarized_para_data <- summarise_mixed_dfs(para_mm_raw,   !!!para_grouping_vars)
+
+para_warnings <- para_mm_raw %>%
+  break_down_conditions(!!!para_grouping_vars,
+    col = warnings, replacement_list = c("Model failed to converge with 1 negative eigenvalue: .*"="Model failed to converge with 1 negative eigenvalue: X")) %>%
+  filter(!grepl("simpleWarning in bind_rows_", warnings))
+para_messages <- para_mm_raw %>%
+  break_down_conditions(!!!para_grouping_vars,
+                        col = messages)
+para_errors <- para_mm_raw %>%
+  break_down_conditions(!!!para_grouping_vars,
+                        col = errors)
+
+rm(para_mm_raw)
+```
+
+```{r load elipses files, cache=TRUE}
+statsmo <- readRDS(paste0(data_path, "stats_moments_new.RDS")) %>% 
+  as_tibble() %>% 
+  filter(grepl("size_56", ofile)) %>%
+  mutate(DistributionName = case_when(
+    grepl("gaussian", Distribution) ~ "Parametric normal",
+    grepl("lognormal", Distribution) ~ "Parametric log-normal",
+    grepl("Natural", Distribution) ~ "Natural",
+    TRUE ~ NA_character_))
+```
+
+<!-- Study 3 data -->
+
+```{r load binned data, cache=TRUE}
+e=2
+binned_grouping_vars <- quos(Nsubj, Nitems, EffectSize, EffectSizeName, RType, Space, `mean RT`)
+binned_grouping_vars_without_effectsize <- quos(Nsubj, Nitems, RType, Space, `mean RT`)
+
+binned_all <- readRDS(paste0(data_path, "binned_mixed_models_lmerTest_new.RDS")) %>%
+    as_tibble() %>%
+    mutate(EffectSizeName = collapse_effect_sizes(EffectSize),
+           EffectSize = factor(EffectSize),
+           SampleName = "post-exclusion") %>%
+  mutate(`mean RT` = case_when(Bin == "bin1" ~ "high",
+                               Bin == "bin2" ~ "medium",
+                               Bin == "bin3" ~ "low",
+                               TRUE ~ NA_character_) %>%
+           factor(levels=c("high", "medium", "low")),
+         Space = case_when(Space == "" ~ "Raw RTs",
+                           grepl("log",Space) ~ "log(RTs)",
+                           TRUE ~ NA_character_) %>%
+           factor(levels=c("Raw RTs", "log(RTs)"))) %>%
+  select(-Bin)
+
+# REMOVES EXTRA SPACE AND DIFF ITEMS
+summarized_binned_data <- binned_all %>%
+  summarise_mixed_dfs(!!!binned_grouping_vars)%>%
+  filter(Nsubj==Nitems)
+
+binned_warnings <- binned_all %>%
+  break_down_conditions(!!!binned_grouping_vars,
+    col = warnings, 
+    replacement_list = c("Model failed to converge with 1 negative eigenvalue: .*"="Model failed to converge with 1 negative eigenvalue: X",
+                         "Model failed to converge with max\\|grad\\|.*"="Model failed to converge with max|grad| X")) %>%
+  filter(!grepl("simpleWarning in bind_rows_", warnings))
+binned_messages <- binned_all %>%
+  break_down_conditions(!!!binned_grouping_vars,
+                        col = messages)
+binned_errors <- binned_all %>%
+  break_down_conditions(!!!binned_grouping_vars,
+                        col = errors)
+rm(binned_all)
+
+```
+
+<!-- Interaction data -->
+
+```{r load interaction data, cache=TRUE} 
+e=2
+int_grouping_vars <- quos(Block1Code, Direction, #Block1Code,
+                          Real, RType, Nsubj, 
+                          Nitems, Space, 
+                          MainEffectSize, MainEffectName,
+                          IntEffectSize, IntEffectName )
+
+int_all <- readRDS(paste0(data_path, "interaction_mixed_models_lmerTest_new.RDS")) %>%
+  as_tibble() %>% 
+  mutate(IntEffectSize = InteractionEffectSize,
+         Real = Interaction=="real",
+         Direction = case_when(Block1Code == -1 ~ intgoodtext1,
+                               Block1Code == 1 ~ intdeptext1,
+                               TRUE ~ NA_character_) %>%
+           factor(levels=c(intgoodtext1, intdeptext1)),
+         Space = case_when(Space == "" ~ "Raw RTs",
+                           grepl("log",Space) ~ "log(RTs)",
+                           TRUE ~ NA_character_) %>%
+           factor(levels=c("Raw RTs", "log(RTs)"))) %>%
+  select(-Interaction, -InteractionEffectSize, -Bins) %>%
+  { stopifnot(n_distinct(.$IntEffectSize)==1); . } %>%
+  mutate(MainEffectName = collapse_effect_sizes(MainEffectSize),
+         IntEffectName  = "medium",
+         MainEffectSize = factor(MainEffectSize),
+         IntEffectSize = factor(IntEffectSize))
+
+# New (2022) ZACHEDIT
+summarized_int_data <- int_all %>%
+  # The warnings are from the fact that block doesn't have a type1, so the stat can't be corrected
+  #   TO-DO: See why the Block1Code doesn't seem to change anything!!!
+  summarise_mixed_dfs(!!!int_grouping_vars)
+
+int_warnings <- int_all %>%
+  break_down_conditions(!!!int_grouping_vars,
+    col = warnings, 
+    replacement_list = c("Model failed to converge with 1 negative eigenvalue: .*"="Model failed to converge with 1 negative eigenvalue: X",
+                         "Model failed to converge with max\\|grad\\|.*"="Model failed to converge with max|grad| X")) %>%
+  filter(!grepl("simpleWarning in bind_rows_", warnings))
+int_messages <- int_all %>%
+  break_down_conditions(!!!int_grouping_vars,
+                        col = messages)
+int_errors <- int_all %>%
+  break_down_conditions(!!!int_grouping_vars,
+                        col = errors)
+rm(int_all)
+
+```
+
+
+# Introduction
+
+## Figure 1 for HS18 log-RTs
+
+```{r}
+lambda_fn <- function(x) { RTs <- keep(x,~!is.na(.) & .>0); b <- MASS::boxcox(RTs~1, plotit = F, lambda=seq(-2, 2, 1/50)); b$x[which.max(b$y)] }
+```
+
+```{r make log distribution plot}
+lambda_geom <- function(x,col=RT,alpha=1,is_label=FALSE,
+                        ypos=0.55) {
+  q <- enquo(col)
+  geom <- if (is_label==TRUE) zplyr:::GeomAbsLabel else zplyr:::GeomAbsText
+  stat_summary_bin(
+    alpha=alpha,
+    bins=2,
+    size=3,
+    xpos=0.6, ypos=ypos,
+    geom=geom,
+    # position=0,
+    aes(x=x, y=stage(!!q, after_stat=-y/10000), 
+        label=after_stat(paste("lambda:", format(y, digits=3, big.mark = ",")))),
+    fun.y=lambda_fn,
+    inherit.aes = FALSE
+)
+}
+
+p.distr.log.a <- setal_all_RTs %>% filter(Structure=="Filler") %>%
+  filter(!is.infinite(log10(RT))) %>%
+  make_RTdensity_panel("log10(RT)", "Word-by-word log-RTs", geom="abs_label", alpha=0.25) + 
+  scale_y_continuous("density") +
+  lambda_geom(1,log10(RT),0.5,TRUE)
+p.distr.log.b <- setal_excl %>% filter(Structure=="Filler") %>%
+  make_RTdensity_panel("log10(RT)", "Outliers removed", geom="abs_label", alpha=0.5) +
+  # theme(panel.background = element_rect(fill="#efefef", size=3, color="#c1c1c1")) +
+  lambda_geom(2,log10(RT),0.5,TRUE)
+p.distr.log.c <- setal_excl %>% filter(Structure=="Filler") %>%
+  make_RTdensity_panel("WLLogResid", "Length-corrected", geom="abs_label", alpha=0.5) +
+  lambda_geom(0,WLLogResid,0.5,TRUE)
+p.distr.log.d <- setal_excl %>% filter(Structure=="Filler") %>%
+  filter(Word.Order %in% c(2, 3, 4)) %>%
+  #--------------------
+  group_by(Subject, Trial.Order, Group) %>%
+  summarise_at(vars(RT, WLLogResid), mean) %>%
+  ungroup() %>%
+  #--------------------
+  make_RTdensity_panel("WLLogResid", "Example 3-word region",
+                       geom="abs_label", alpha=0.5) +
+  lambda_geom(0,WLLogResid,0.5,TRUE)
+p.distr.log.e <- setal_excl %>% filter(Structure != "Filler") %>%
+  filter(Region=="disambiguation") %>%
+  #--------------------
+  group_by(Subject, Trial.Order, Group, Structure) %>%
+  summarise_at(vars(RT, WLLogResid), mean) %>%
+  ungroup() %>%
+  #--------------------
+  mutate(ypos_val = ifelse(Structure=="RC", 0.85, 0.55)) %>%
+  ggplot(aes_string(x="WLLogResid", color="Structure")) +
+  geom_density() +
+  zplyr::stat_moments(aes(xpos = 0.7, ypos = ypos_val), sig=T, 
+                      moment="both", size =2.5, alpha=0.5,
+                      excess_kurtosis = T, geom="abs_label") +
+  scale_x_continuous("Actual critical regions") +
+  scale_y_continuous("") +
+  scale_color_discrete("") +
+  p.distr.theme +
+  theme(legend.position = c(0.65, 0.2),
+        legend.direction = "horizontal",
+        legend.background = element_blank(),
+        legend.text =  element_text(size=rel(0.7)),
+        legend.title = element_text(size=rel(0.7)))
+
+p.distr.log.final <- plot_grid(p.distr.log.a, p.distr.log.b, p.distr.log.c, p.distr.log.d,
+                               NULL,          NULL,          NULL,          p.distr.log.e,
+                               nrow=2,  align="h",
+                               labels=c("A","B","C","D","","","","E"))
+```
+
+```{r pp1, fig.width=6,fig.height=2.86}
+p.distr.log.final
+```
+
+## Figure 1 for FETAL data
+
+```{r make fetal distr plot}
+p.distr.fetal.a <- fetal_all_RTs %>% filter(Structure=="Filler") %>%
+  make_RTdensity_panel("RT", "Word-by-word reading times") + 
+  scale_y_continuous("density") +
+  lambda_geom(1,RT,1,FALSE)
+p.distr.fetal.b <- fetal_excl %>% filter(Structure=="Filler") %>%
+  make_RTdensity_panel("RT", "Outliers removed") +
+  lambda_geom(1,RT,1,FALSE)
+p.distr.fetal.c <- fetal_excl %>% filter(Structure=="Filler") %>%
+  make_RTdensity_panel("WLResid", "Length-corrected") +
+  lambda_geom(0,WLResid,1,FALSE)
+p.distr.fetal.d <- fetal_excl %>% filter(Structure=="Filler") %>%
+  filter(Word.Order %in% c(2, 3, 4)) %>%
+  #--------------------
+  group_by(Subject, Trial.Order, Group) %>%
+  summarise_at(vars(RT, WLResid), mean) %>%
+  ungroup() %>%
+  #--------------------
+  make_RTdensity_panel("WLResid", "Example 3-word region") +
+  lambda_geom(0,WLResid,1,FALSE)
+
+p.distr.fetal.e <- fetal_excl %>% filter(Structure != "Filler") %>%
+  filter(Region=="disambiguation") %>%
+  #--------------------
+  group_by(Subject, Trial.Order, Group, Structure) %>%
+  summarise_at(vars(RT, WLResid), mean) %>%
+  ungroup() %>%
+  #--------------------
+  mutate(ypos_val = ifelse(Structure=="RC", 0.85, 0.55)) %>%
+  ggplot(aes_string(x="WLResid", color="Structure")) +
+  geom_density() +
+  zplyr::stat_moments(aes(xpos=0.6, ypos=ypos_val), sig=T, 
+                      moment="both", excess_kurtosis = T, 
+                      size=2.5, geom="abs_label") +
+  scale_x_continuous("Actual critical regions") +
+  scale_y_continuous("") +
+  scale_color_discrete("") +
+  p.distr.theme +
+  theme(legend.position = c(0.65, 0.2),
+        legend.direction = "horizontal",
+        legend.background = element_blank(),
+        legend.text =  element_text(size=rel(0.7)),
+        legend.title = element_text(size=rel(0.7)))
+
+fetal_distr_final <- plot_grid(p.distr.fetal.a, p.distr.fetal.b, p.distr.fetal.c, p.distr.fetal.d,
+                           NULL,      NULL,      NULL,      p.distr.fetal.e,
+                           nrow=2,  align="h",
+                           labels=c("A","B","C","D","","","","E"))
+```
+
+```{r}
+fetal_distr_final
+```
+
+## Figure 1 for NSC data
+
+```{r make NSC distr plot}
+p.distr.nsc.a <- nsc_all_RTs %>%
+  make_RTdensity_panel("RT", "Word-by-word reading times") + 
+  scale_y_continuous("density") +
+  lambda_geom(1,RT,1,FALSE)
+p.distr.nsc.b <- nsc_excl %>%
+  make_RTdensity_panel("RT", "Outliers removed") +
+  lambda_geom(1,RT,1,FALSE)
+p.distr.nsc.c <- nsc_excl %>% 
+  make_RTdensity_panel("WLResid", "Length-corrected") +
+  lambda_geom(1,WLResid,1,FALSE)
+p.distr.nsc.d <- nsc_excl %>% 
+  filter(Word.Order %in% c(2, 3, 4)) %>%
+  #--------------------
+  group_by(Subject, Trial.Order) %>%
+  summarise_at(vars(RT, WLResid), mean) %>%
+  ungroup() %>%
+  #--------------------
+  make_RTdensity_panel("WLResid", "Example 3-word region") +
+  lambda_geom(1,WLResid,1,FALSE)
+
+nsc_distr_final <- plot_grid(p.distr.nsc.a, p.distr.nsc.b, p.distr.nsc.c, p.distr.nsc.d,
+                           nrow=1,  align="h",
+                           labels=c("A","B","C","D","","","",""))
+```
+
+```{r, fig.height=fig_height/(1.75)}
+nsc_distr_final
+```
+
+## Figure 2 for F13 data
+
+```{r, fig.show='hide'}
+fj.top <- fetal_excl %>% 
+  make_jaegerfig_14.top(n_panels=6, 
+                        bottom_text=jaeger_top_text, 
+                        seed=4,
+                        bin_by = "item",
+                        return_components = FALSE,
+                        ncols = 3, subjects=NA)
+
+fj.bot <- fetal_excl %>% 
+  make_jaegerfig_14.bottom(bottom_text=jaeger_bottom_text, 
+                           has_legend=TRUE,
+                           return_components = FALSE)
+
+fetal_jaeger_14 <- combine_jaegerfig_parts(fj.top, fj.bot, rel_heights = c(1, 0.08, 1))
+```
+
+```{r, fig.cap=paste(jaeger_cap_intro, "Panel A: Randomly drawn participants from the F13 data.", jaeger_cap_a, jaeger_cap_b), fig.height=pic_height*2}
+fetal_jaeger_14
+```
+
+
+## Figure 2 for NSC data
+
+```{r, fig.show='hide'}
+nj.top <- nsc_excl %>% 
+  group_by(Subject) %>% filter(n_distinct(Story) <= 5) %>% 
+  make_jaegerfig_14.top(n_panels=6, 
+                        bottom_text=jaeger_top_text, 
+                        seed=5,
+                        bin_by = "item",
+                        return_components = TRUE,
+                        ncols = 3, subjects=NA)
+nj.top$facet_plots <- nj.top$facet_plots %>%
+  map(~. + theme(title = element_text(size=rel(0.6))))
+nsc_jaeger.p.facets <- plot_grid(plotlist = nj.top$facet_plots,
+                                 labels=NA, align="h", ncol = 3)
+nj.final_top <- grid.arrange(
+  arrangeGrob(nsc_jaeger.p.facets, 
+              left = nj.top$y.grob, 
+              bottom = nj.top$x.grob)
+)
+
+
+nj.bot <- nsc_excl %>%
+  mutate(Experiment=factor("B"), Group=factor("a"), Structure=factor("All trials")) %>%
+  make_jaegerfig_14.bottom(bottom_text=jaeger_bottom_text, 
+                           has_legend=TRUE,
+                           return_components = TRUE)
+
+nj.final_bot <- grid.arrange(
+  arrangeGrob(nj.bot$bottom_plot,# + scale_color_discrete(guide=FALSE) + scale_shape_discrete(guide=FALSE), 
+              left = nj.bot$y.grob, 
+              bottom = nj.bot$x.grob)
+)
+
+nsc_jaeger_14 <- combine_jaegerfig_parts(nj.final_top, nj.final_bot, rel_heights = c(1, 0.08, 1))
+
+```
+
+```{r, fig.height=pic_height*2}
+nsc_jaeger_14
+```
+
+
+# Study 1
+
+```{r} 
+all_in_one_plotter <- function(summarized_df) {
+  bind_rows(
+    "TypeI" = summarized_df %>%
+    filter(Type=="type1") %>%
+    {cbind(., as_tibble(Hmisc::binconf(.$Stat*.$n, .$n)))},
+  "Power" =  summarized_df %>%
+    filter(Type=="power") %>%
+    {cbind(., as_tibble(Hmisc::binconf(.$CorrectedStat*.$n, .$n)))},
+  "SingFit" =  summarized_df %>%
+    filter(Type=="type1") %>%
+    {cbind(., as_tibble(Hmisc::binconf(.$n_singfits, .$n)))},
+   "Conv" =  summarized_df %>%
+    filter(Type=="type1") %>%
+    {cbind(., as_tibble(Hmisc::binconf(.$og_n-.$n, .$og_n)))},
+  .id="metric"
+) %>%
+  mutate(Metric=case_when(
+    metric=="SingFit" ~ singfit_y_text,
+    metric=="Conv" ~ convergence_y_text_si,
+    metric=="TypeI" ~ "Type I error rate", # oops, no text for that
+    metric=="Power" ~ "Power",
+    TRUE ~ NA_character_
+  )) %>%
+  mutate(Nsubj=as.factor(Nsubj),
+         Metric = factor(Metric, levels=c(
+           convergence_y_text_si, singfit_y_text, "Type I error rate", "Power")))
+}
+
+
+```
+
+## Number of items has little impact on power
+
+```{r why-no-items-SI} 
+summarized_reg_data %>%
+  filter(Type=="power",
+         EffectSize=="56",
+         SampleName == "post-exclusion") %>%
+  ggplot(aes(x = Nitems, y = Stat,
+             shape = factor(Nsubj),
+             color = Analysis)) +
+  geom_line(size=2) +
+  geom_point(size=4) +
+  # ggtitle("Number of subjects drives power", "post-exclusion , medium effect size") +
+  ylab(power_text) +
+  xlab("Number of items per subject") +
+  scale_color_manual("Analysis\napproach", values = analysis_colors,
+                     labels = analysis_labels) +
+  scale_shape_discrete("Number of subjects")
+```
+
+```{r}
+summarized_reg_data %>%
+  filter(EffectSize=="56",
+         SampleName == "post-exclusion") %>%
+  all_in_one_plotter() %>%
+  ggplot(aes(
+    color=Analysis,
+    shape=Nsubj,
+    y=PointEst,
+    ymax=Upper,
+    ymin=Lower,
+    x=Nitems
+  )) + 
+  facet_wrap(~Metric, labeller=label_value) +
+  geom_pointrange(position = position_dodge(def_dodge_width)) +
+  geom_line(aes(group=paste(Analysis,Nsubj)),
+            position = position_dodge(def_dodge_width)) +
+  labs(x="Number of items per subject",
+       y="Metric values") +
+  scale_shape("Number of subjects") +
+  theme(legend.position = "right") +
+  scale_color_manual(values = analysis_colors,
+                     labels = analysis_labels)
+```
+
+```{r}
+summarized_nsc_data %>%
+  filter(EffectSizeName =="medium",
+         SampleName == "post-exclusion") %>%
+  all_in_one_plotter() %>%
+  ggplot(aes(
+    color=Analysis,
+    shape=as.factor(Nsubj),
+    y=PointEst,
+    ymax=Upper,
+    ymin=Lower,
+    x=as.factor(Nstories)
+  )) + 
+  facet_wrap(~Metric, labeller=label_value) +
+  geom_pointrange() +
+  geom_line(aes(group=paste(Analysis,Nsubj))) +
+  labs(x="Number of stories sampled per BATA",
+       y="Metric values") +
+  scale_shape("Number of subjects") +
+  theme(legend.position = "right") +
+  scale_color_manual(values = analysis_colors,
+                     labels = analysis_labels)
+```
+
+
+## Filler-to-item ratios have little impact on residualized results
+ 
+
+```{r filleritemratioplot}
+
+summarized_fillitemtest %>%
+  all_in_one_plotter() %>%
+  mutate(Nsubj=as.factor(Nsubj),
+         Metric = factor(Metric, levels=c(
+           convergence_y_text_si, singfit_y_text, "Type I error rate", "Power"))) %>%
+ggplot(aes(
+  color=Analysis,
+  shape=Nsubj,
+  y=PointEst,
+  ymax=Upper,
+  ymin=Lower,
+  x=as.factor(FillerItemRatio)
+)) + 
+  facet_wrap(~Metric, labeller=label_value) +
+  geom_pointrange(position = position_dodge(def_dodge_width)) +
+  labs(x="Filler-to-item ratio",
+       y="Metric values") +
+  scale_color_manual(values = analysis_colors,
+                       labels = analysis_labels) +
+  scale_shape_manual(subject_text,
+                     values=c(7,9))
+```
+
+## Convergence failures
+ 
+```{r}
+all_conv_plot_mods <- list(
+  aes(color=Nitems),
+  aes(shape=Analysis),
+  scale_shape("Analysis\napproach"),
+    # scale_alpha_manual("", values = type_alphas, labels = type_labels),
+    theme(panel.grid.minor = element_blank(),
+          strip.background = element_blank()),
+    smaller_legends_theme
+  
+)
+exp_conv_plot_mods <- list(
+  facet_grid(vars(EffectSizeName), vars(SampleName), labeller = label_value),
+    scale_y_continuous(sec.axis = dup_axis(name="Effect size", breaks=c(-Inf,Inf), labels=NULL)),
+  scale_color_discrete(guide=FALSE)
+)
+exp_conv_plot_mods <- append(all_conv_plot_mods, exp_conv_plot_mods)
+```
+
+```{r making the study1 convergence text}
+reg_giant_conv_text <- summarized_reg_data %>% 
+  filter(Nitems==Nsubj) %>%
+  prepare_summed_conv_data(giant_grouping_vars) %>%
+  get_descriptive_stats(!!!giant_grouping_vars) %>%
+  output_descriptive_stats(intro_text = "For the HS18 simulations, ",
+                           stat_text = "rates of convergence failures",
+                           at_val = 0.01)
+fetal_giant_conv_text <- summarized_fetal_data %>% 
+  filter(Nitems==Nsubj) %>%
+  prepare_summed_conv_data(giant_grouping_vars) %>%
+  get_descriptive_stats(!!!giant_grouping_vars) %>%
+  output_descriptive_stats(intro_text = "For the F13 simulations, ",
+                           stat_text = "rates of convergence failures",
+                           at_val = 0.01)
+nsc_giant_conv_text <- summarized_nsc_data %>% 
+  filter(Nitems==Nsubj, Nstories==4) %>%
+  prepare_summed_conv_data(giant_grouping_vars) %>%
+  get_descriptive_stats(!!!giant_grouping_vars) %>%
+  output_descriptive_stats(intro_text = "For the NSC simulations, ",
+                           stat_text = "rates of convergence failures",
+                           at_val = 0.01)
+```
+
+### HS18
+
+#### Analyses
+ 
+```{r}
+reg_conv_anova <- summarized_reg_data %>% 
+  filter(Nitems==Nsubj) %>%
+  prepare_summed_conv_data(giant_grouping_vars) %>%
+  auto_anova(Analysis, Nsubj, SampleName, EffectSizeName,
+             return_everything = TRUE)
+
+reg_conv_anova$omni_tests %>%
+  format_omnibus() %>%
+  zachs_kable_sub(
+    "latex", escape = FALSE, booktabs = T,
+    label="reg-conv-anova",
+    caption = paste(
+      omnibus_table_intro,
+      "the Study 1 HS18 rates of convergence failure,",
+      omnibus_table_mid,
+      "(i.e., sample size, data preparation, effect size, and analysis approach)",
+      omnibus_table_end))  %>%
+  omni_formatter_ft()
+
+reduced_reg_conv_anova <- summarized_reg_data %>% 
+  filter(Nitems==Nsubj) %>%
+  filter(SampleName %in% c("residualized", "3-word region")) %>%
+  prepare_summed_conv_data(giant_grouping_vars) %>%
+  auto_anova(Analysis, Nsubj, SampleName, EffectSizeName,
+             return_everything = TRUE)
+rrcar <- reduced_reg_conv_anova$full_model %>%
+  broom::tidy() %>%
+  filter(p.value <= 0.1)
+```
+
+#### Full plot
+
+```{r reg_giant_convergence, fig.cap=paste("The convergence failure rate for all HS18 simulations and conditions.", setal_items_text, binom_ci_text, "")}
+p <- summarized_reg_data %>%
+  filter(Nsubj==Nitems) %>%
+  base_plot_convergence(giant_grouping_vars) +
+  exp_conv_plot_mods +
+  scale_color_discrete(guide=FALSE)
+  # scale_color_discrete("# of items")
+p %>% add_results_ornaments()
+```
+
+### F13
+
+#### Full plot
+
+```{r, fig.cap=paste("The convergence rate for both analysis approaches and all F13 simulations.", binom_ci_text, small_ci_text)}
+p <- summarized_fetal_data %>%
+  base_plot_convergence(giant_grouping_vars) +
+  scale_color_discrete(guide=FALSE) +
+  exp_conv_plot_mods
+
+p %>% add_results_ornaments()
+```
+
+
+### NSC
+
+#### Full plot: all story numbers
+
+```{r, fig.cap=paste("The convergence rate for both analysis approaches and the NSC simulations with effect sizes of 15 and 56 ms.", nsc_story_text, binom_ci_text, small_ci_text)}
+p <- summarized_nsc_data %>%
+  filter(EffectSizeName=="medium",
+         Type == "power") %>%
+  mutate(Nstories=factor(Nstories)) %>%
+  base_plot_convergence(nsc_giant_grouping_vars) +
+  scale_color_discrete(guide=FALSE) +
+  all_conv_plot_mods +
+  facet_grid(vars(Nstories), vars(SampleName), labeller = label_value) +
+  scale_y_continuous(sec.axis = dup_axis(name="Subsampled stories", breaks=c(-Inf,Inf), labels=NULL))
+
+p %>% add_results_ornaments()
+```
+
+#### Full plot: all effect sizes
+
+```{r, fig.cap=paste("The convergence rate for both analysis approaches and the NSC simulations with the number of stories sampled from set to the value in the main paper: four.", nsc_story_text, binom_ci_text, small_ci_text)}
+
+p <- summarized_nsc_data %>%
+  filter(Nstories==4) %>%
+  base_plot_convergence(nsc_giant_grouping_vars) +
+  exp_conv_plot_mods
+
+p %>% add_results_ornaments()
+```
+
+## Singular fits
+ 
+```{r making study1 singfit text}
+reg_giant_singfit_text <- summarized_reg_data %>% 
+  filter(Nitems==Nsubj) %>%
+  prepare_summed_singfit_data(giant_grouping_vars) %>%
+  get_descriptive_stats(!!!giant_grouping_vars) %>%
+  output_descriptive_stats(intro_text = "For the HS18 simulations, ",
+                           stat_text = "rates of singular fit",
+                           at_val = 0.1)
+fetal_giant_singfit_text <- summarized_fetal_data %>% 
+  filter(Nitems==Nsubj) %>%
+  prepare_summed_singfit_data(giant_grouping_vars) %>%
+  get_descriptive_stats(!!!giant_grouping_vars) %>%
+  output_descriptive_stats(intro_text = "For the F13 simulations, ",
+                           stat_text = "rates of singular fit",
+                           at_val = 0.1)
+nsc_giant_singfit_text <- summarized_nsc_data %>% 
+  filter(Nitems==Nsubj, Nstories==4) %>%
+  prepare_summed_singfit_data(giant_grouping_vars) %>%
+  get_descriptive_stats(!!!giant_grouping_vars) %>%
+  output_descriptive_stats(intro_text = "For the NSC simulations, ",
+                           stat_text = "rates of singular fit",
+                           at_val = 0.1)
+
+```
+
+### HS18
+
+#### Analyses
+
+
+```{r}
+reg_singfit_anova <- summarized_reg_data %>% 
+  filter(Nitems==Nsubj) %>%
+  prepare_summed_singfit_data(giant_grouping_vars) %>%
+  auto_anova(Analysis, Nsubj, SampleName, EffectSizeName,
+             return_everything = TRUE)
+
+reg_singfit_anova$omni_tests %>%
+  format_omnibus() %>%
+  zachs_kable_sub(
+    "latex", escape = FALSE, booktabs = T,
+    label="reg-singfit-anova",
+    caption = paste(
+      omnibus_table_intro,
+      "the Study 1 HS18 rates of singular fit,",
+      omnibus_table_mid,
+      "(i.e., sample size, data preparation, effect size, and analysis approach)",
+      omnibus_table_end))   %>%
+  omni_formatter_ft() 
+
+reduced_reg_singfit_anova <- summarized_reg_data %>% 
+  filter(Nitems==Nsubj) %>%
+  filter(Nsubj %in% c(8, 16)) %>%
+  prepare_summed_singfit_data(giant_grouping_vars) %>%
+  auto_anova(Analysis, Nsubj, SampleName, EffectSizeName,
+             return_everything = TRUE)
+rrsar <- broom::tidy(reduced_reg_singfit_anova$full_model) %>%
+  filter(p.value <= 0.1)
+```
+
+#### Full plot
+
+```{r setal-sing-fit-full, fig.cap=paste("The proportion of models with singular fits from the HS18 simulations.", setal_items_text, binom_ci_text, small_ci_text, "")}
+p <- summarized_reg_data %>%
+  filter(Nsubj==Nitems) %>%
+  base_plot_singfit(giant_grouping_vars) +
+  exp_conv_plot_mods +
+  scale_color_discrete(guide=FALSE)
+  # scale_color_discrete("# of items")
+
+p %>% add_results_ornaments()
+```
+
+### F13
+
+#### Full plot
+
+```{r, fig.cap=paste("The proportion of models with singular fits from the F13 data.", binom_ci_text, small_ci_text)}
+p <- summarized_fetal_data %>%
+  filter(Nsubj==Nitems) %>%
+  base_plot_singfit(giant_grouping_vars) +
+  exp_conv_plot_mods
+
+p %>% add_results_ornaments()
+```
+
+### NSC
+
+#### Full plot: all story numbers
+
+```{r nsc-giant-singfit-rate, fig.cap=paste("The proportion of models with singular fits from the NSC data set with effect sizes of 15 and 56 ms.", nsc_story_text, binom_ci_text, small_ci_text, "")}
+p <- summarized_nsc_data %>%
+  filter(EffectSizeName=="medium",
+         Type == "power") %>%
+  mutate(Nstories=factor(Nstories)) %>%
+  base_plot_singfit(nsc_giant_grouping_vars) +
+  scale_color_discrete(guide=FALSE) +
+  all_conv_plot_mods +
+  facet_grid(vars(Nstories), vars(SampleName), labeller = label_value) +
+  scale_y_continuous(sec.axis = dup_axis(name="Subsampled stories", breaks=c(-Inf,Inf), labels=NULL))
+
+p %>% add_results_ornaments()
+```
+
+#### Full plot: all effect sizes
+
+```{r, fig.cap=paste("The proportion of models with singular fits from the NSC data sets with the number of stories sampled from set to the value in the main paper: four.", binom_ci_text, small_ci_text)}
+p <- summarized_nsc_data %>%
+  filter(Nsubj==Nitems, Nstories==4) %>%
+  base_plot_singfit(giant_grouping_vars) +
+  exp_conv_plot_mods
+
+p %>% add_results_ornaments()
+```
+
+
+## Type I errors
+
+```{r type I plot mods}
+all_type1_plot_mods <- list(
+  aes(color=Nitems),
+  aes(shape=Analysis),
+  scale_shape("Analysis\napproach"),
+  facet_grid(vars(NULL), vars(SampleName), labeller = label_value),
+    # scale_y_continuous(sec.axis = dup_axis(name="Effect size", breaks=c(-Inf,Inf), labels=NULL)),
+  scale_color_discrete(guide=FALSE),
+    # scale_alpha_manual("", values = type_alphas, labels = type_labels),
+    theme(panel.grid.minor = element_blank(),
+          strip.background = element_blank()),
+    smaller_legends_theme
+)
+
+```
+
+```{r making study 1 type 1 text}
+reg_giant_type1_text <- summarized_reg_data %>% 
+  filter(Nitems==Nsubj) %>%
+  prepare_summed_type1_data(giant_grouping_vars) %>%
+  get_descriptive_stats(!!!giant_grouping_vars,
+                        say_greater = TRUE) %>%
+  output_descriptive_stats(intro_text = "For the HS18 simulations, ",
+                           stat_text = "Type I error rates",
+                           say_greater = TRUE,
+                           at_val = 0.05,
+                           used_smoothing = FALSE)
+fetal_giant_type1_text <- summarized_fetal_data %>% 
+  filter(Nitems==Nsubj) %>%
+  prepare_summed_type1_data(giant_grouping_vars) %>%
+  get_descriptive_stats(!!!giant_grouping_vars,
+                        say_greater = TRUE) %>%
+  output_descriptive_stats(intro_text = "For the F13 simulations, ",
+                           stat_text = "Type I error rates",
+                           say_greater = TRUE,
+                           at_val = 0.05,
+                           used_smoothing = FALSE)
+nsc_giant_type1_text <- summarized_nsc_data %>% 
+  filter(Nitems==Nsubj, Nstories==4) %>%
+  prepare_summed_type1_data(nsc_giant_grouping_vars) %>%
+  get_descriptive_stats(!!!giant_grouping_vars,
+                        say_greater = TRUE) %>%
+  output_descriptive_stats(intro_text = "For the NSC simulations, ",
+                           stat_text = "Type I error rates",
+                           say_greater = TRUE,
+                           at_val = 0.05,
+                           used_smoothing = FALSE)
+
+closer_than_type1_reg_text <- summarized_reg_data %>% 
+  filter(Nitems==Nsubj) %>%
+  prepare_summed_type1_data(giant_grouping_vars) %>%
+  get_stat_closer_to_05_df(!!!giant_grouping_vars) %>%
+  {
+    paste("However, the Type I error rates of the log-transformed analysis approach were closer to 0.05 (measured in log-odds) than the standard approach for", .$total_is_closer[1], "of the", .$total[1], "simulations.")
+  }
+closer_than_type1_fetal_text <- summarized_fetal_data %>% 
+  filter(Nitems==Nsubj) %>%
+  prepare_summed_type1_data(giant_grouping_vars) %>%
+  get_stat_closer_to_05_df(!!!giant_grouping_vars) %>%
+  {
+    paste("The Type I error rates of the log-transformed analysis approach were closer to 0.05 (measured in log-odds) than the standard approach for", .$total_is_closer[1], "of the", .$total[1], "simulations.")
+  }
+closer_than_type1_nsc_text <- summarized_nsc_data %>% 
+  filter(Nitems==Nsubj, Nstories==4) %>%
+  prepare_summed_type1_data(nsc_giant_grouping_vars) %>%
+  get_stat_closer_to_05_df(!!!giant_grouping_vars) %>%
+  {
+    paste("However, the Type I error rates of the log-transformed analysis approach were closer to 0.05 (measured in log-odds) than the standard approach for", .$total_is_closer[1], "of the", .$total[1], "simulations.")
+  }
+
+```
+
+### HS18
+
+
+#### Analyses
+
+```{r}
+
+reg_type1_anova <- summarized_reg_data %>% 
+  filter(Nitems==Nsubj) %>%
+  prepare_summed_type1_data(giant_grouping_vars) %>%
+  auto_anova(Analysis, Nsubj, SampleName,
+             plus_one_smoothing = FALSE)
+
+reg_type1_anova$omni_tests %>%
+  format_omnibus() %>%
+  zachs_kable_sub(
+    "latex", escape = FALSE, booktabs = T,
+    label="reg-type1-anova",
+    caption = paste(
+      omnibus_table_intro,
+      "the Study 1 HS18 Type I error rates,",
+      omnibus_table_mid,
+      "(i.e., sample size, data preparation, and analysis approach)",
+      omnibus_table_end))    %>%
+  omni_formatter_ft()
+
+reduced_reg_type1_anova <- summarized_reg_data %>% 
+  filter(Nitems==Nsubj) %>%
+  prepare_summed_type1_data(giant_grouping_vars) %>%
+  auto_anova(Analysis, Nsubj, SampleName,
+             plus_one_smoothing = FALSE,
+             return_everything = TRUE)
+rrtar <- broom::tidy(reduced_reg_type1_anova$full_model) %>%
+  filter(p.value <= 0.1)
+
+s1_reg_log_05_diff <- reduced_reg_type1_anova$data %>% 
+  filter(grepl("log", Analysis)) %>%
+  type1_sig_rater( Nsubj * SampleName)
+
+s1_reg_linear_05_diff <- reduced_reg_type1_anova$data %>% 
+  filter(!grepl("log", Analysis)) %>%
+  type1_sig_rater( Nsubj * SampleName)
+
+```
+
+
+#### Full regression summary
+
+```{r}
+reduced_reg_type1_anova$regsum %>%
+  zachs_kable_sub("latex",  booktabs = T,
+               label="setal-type1-fullregress",
+               caption="The summary of the full interaction model for the Type I HS18 data in Study 1.") 
+```
+
+
+#### Full plot
+
+```{r, fig.cap=paste("Type I error rates for models fit to the HS18 data.", setal_items_text,  boot_ci_text, inflated_text)}
+p <- summarized_reg_data %>%
+  filter(Nsubj==Nitems) %>%
+  base_plot_type1(giant_grouping_vars) +
+  all_type1_plot_mods +
+  scale_color_discrete(guide=FALSE)
+  # scale_color_discrete("# of items")
+p %>% add_results_ornaments()
+```
+
+### F13
+
+#### Full plot
+
+```{r, fig.cap=paste("Type I error rates for models fit to the F13 data.", boot_ci_text, inflated_text)}
+p <- summarized_fetal_data %>%
+  base_plot_type1(giant_grouping_vars) +
+  all_type1_plot_mods +
+  scale_color_discrete(guide=FALSE)
+p %>% add_results_ornaments()
+```
+
+### NSC
+
+#### Full plot
+
+```{r nsc-giant-type1}
+p <- summarized_nsc_data %>%
+  filter(EffectSizeName=="medium") %>%
+  mutate(Nstories=factor(Nstories)) %>%
+  base_plot_type1(nsc_giant_grouping_vars) +
+  scale_color_discrete(guide=FALSE) +
+  all_type1_plot_mods +
+  facet_grid(vars(Nstories), vars(SampleName), labeller = label_value) +
+  scale_y_continuous(sec.axis = dup_axis(name="Subsampled stories", breaks=c(-Inf,Inf), labels=NULL))
+
+p %>% add_results_ornaments()
+```
+
+## Power (uncorrected)
+
+```{r} 
+power_mods <- list(
+  aes(color=Analysis, group=Analysis),
+  scale_color_manual("Analysis approach", 
+                     values = analysis_colors,
+                     labels = analysis_labels)
+)
+exp_power_mods <- list(
+   facet_grid(vars(EffectSizeName), vars(SampleName),
+             labeller = label_value),
+  scale_y_continuous(sec.axis = dup_axis(
+    name="Effect size",
+    breaks=c(-Inf, Inf), labels = NULL))
+)
+exp_power_mods <- append(power_mods, exp_power_mods)
+
+```
+
+```{r making study 1 uncorrected power text}
+reg_giant_uncorrected_power_text <- summarized_reg_data %>% 
+  filter(Nitems==Nsubj) %>%
+  prepare_summed_power_data(giant_grouping_vars, is_corrected = FALSE) %>%
+  get_descriptive_stats(!!!giant_grouping_vars,
+                        say_greater=TRUE) %>%
+  output_descriptive_stats(intro_text = "For the HS18 simulations, ",
+                           stat_text = "power",
+                           at_val = 0.8,
+                           say_greater=TRUE)
+fetal_giant_uncorrected_power_text <- summarized_fetal_data %>% 
+  filter(Nitems==Nsubj) %>%
+  prepare_summed_power_data(giant_grouping_vars, is_corrected = FALSE) %>%
+  get_descriptive_stats(!!!giant_grouping_vars,
+                        say_greater=TRUE) %>%
+  output_descriptive_stats(intro_text = "For the F13 simulations, ",
+                           stat_text = "power",
+                           at_val = 0.8,
+                           say_greater=TRUE)
+nsc_giant_uncorrected_power_text <- summarized_nsc_data %>% 
+  filter(Nitems==Nsubj, Nstories==4) %>%
+  prepare_summed_power_data(giant_grouping_vars, is_corrected = FALSE) %>%
+  get_descriptive_stats(!!!giant_grouping_vars,
+                        say_greater=TRUE) %>%
+  output_descriptive_stats(intro_text = "For the NSC simulations, ",
+                           stat_text = "power",
+                           at_val = 0.8,
+                           say_greater=TRUE)
+```
+
+
+### HS18
+
+```{r, fig.cap=paste("Power (uncorrected) for both analysis approaches on the HS18 data.", effect_size_text) }
+paper_reg_poweruncorrected <- summarized_reg_data %>%
+  filter(Nitems==Nsubj) %>%
+  base_plot_power(giant_grouping_vars, is_corrected = FALSE) +
+  exp_power_mods
+paper_reg_poweruncorrected %>% add_results_ornaments()
+```
+
+### F13
+
+
+```{r, fig.cap=paste("Power (uncorrected) for both analysis approaches on the F13 data.", effect_size_text)}
+p <- summarized_fetal_data %>%
+  filter(Nitems==Nsubj) %>%
+  base_plot_power(giant_grouping_vars, is_corrected = FALSE) +
+  aes(color=Analysis) +
+  exp_power_mods
+p %>% add_results_ornaments()
+```
+
+### NSC
+
+#### Full plot: all story numbers
+
+```{r, fig.cap=paste("Power (uncorrected) for both analysis approaches on the NSC data with effect sizes of 15 and 56 ms.", nsc_story_text, effect_size_text, "\\label{Figure:nsc_giant_raw_power_story}")}
+p <- summarized_nsc_data %>%
+  filter(Nitems==Nsubj, EffectSizeName=="medium") %>%
+  base_plot_power(giant_grouping_vars, is_corrected = FALSE) +
+  power_mods +
+  facet_grid(vars(Nstories), vars(SampleName),
+             labeller = label_value) +
+  scale_y_continuous(sec.axis = dup_axis(
+    name="Subsampled stories",
+    breaks=c(-Inf, Inf), labels = NULL))
+p %>% add_results_ornaments()
+```
+
+#### Full plot: all effect sizes
+
+```{r, fig.cap=paste("Power (uncorrected) for both analysis approaches on the NSC data with the number of stories sampled from set to the value in the main paper: four.", nsc_story_text, effect_size_text, "\\label{Figure:nsc_giant_raw_power_effect}")}
+p <- summarized_nsc_data %>%
+  filter(Nitems==Nsubj, Nstories==4) %>%
+  base_plot_power(giant_grouping_vars, is_corrected = FALSE) +
+  exp_power_mods
+p %>% add_results_ornaments()
+```
+
+
+## Power (corrected for Type I error rate)
+
+```{r making study 1 corrected power text}
+reg_giant_corrected_power_text <- summarized_reg_data %>% 
+  filter(Nitems==Nsubj) %>%
+  prepare_summed_power_data(giant_grouping_vars, is_corrected = TRUE) %>%
+  get_descriptive_stats(!!!giant_grouping_vars,
+                        say_greater=TRUE) %>%
+  output_descriptive_stats(intro_text = "For the HS18 simulations, ",
+                           stat_text = "Type I-corrected power",
+                           at_val = 0.8,
+                           say_greater=TRUE)
+fetal_giant_corrected_power_text <- summarized_fetal_data %>% 
+  filter(Nitems==Nsubj) %>%
+  prepare_summed_power_data(giant_grouping_vars, is_corrected = TRUE) %>%
+  get_descriptive_stats(!!!giant_grouping_vars,
+                        say_greater=TRUE) %>%
+  output_descriptive_stats(intro_text = "For the F13 simulations, ",
+                           stat_text = "Type I-corrected power",
+                           at_val = 0.8,
+                           say_greater=TRUE)
+nsc_giant_corrected_power_text <- summarized_nsc_data %>% 
+  filter(Nitems==Nsubj, Nstories==4) %>%
+  prepare_summed_power_data(giant_grouping_vars, is_corrected = TRUE) %>%
+  get_descriptive_stats(!!!giant_grouping_vars,
+                        say_greater=TRUE) %>%
+  output_descriptive_stats(intro_text = "For the NSC simulations, ",
+                           stat_text = "Type I-corrected power",
+                           at_val = 0.8,
+                           say_greater=TRUE)
+```
+
+### HS18
+
+
+#### Analyses
+
+
+```{r}
+reg_corrected_power_anova <- summarized_reg_data %>% 
+  filter(Nitems==Nsubj) %>%
+  prepare_summed_power_data(giant_grouping_vars, 
+                            is_corrected = TRUE) %>%
+  auto_anova(Analysis, Nsubj, SampleName, EffectSizeName,
+             return_everything = TRUE)
+
+reg_corrected_power_anova$omni_tests %>%
+  format_omnibus() %>%
+  zachs_kable_sub(
+    "latex", escape = FALSE, booktabs = T,
+    label="reg-corrected-power-anova",
+    caption = paste(
+      omnibus_table_intro,
+      "the Study 1 HS18 Type I-corrected power ,",
+      omnibus_table_mid,
+      "(i.e., sample size, data preparation, effect size, and analysis approach)",
+      omnibus_table_end))    %>%
+  omni_formatter_ft()
+
+reduced_reg_corrected_power_anova <- summarized_reg_data %>% 
+  filter(Nitems==Nsubj) %>%
+  filter(Nsubj %in% c(8, 16)) %>%
+  prepare_summed_power_data(giant_grouping_vars,
+                            is_corrected = TRUE) %>%
+  auto_anova(Analysis, Nsubj, SampleName, EffectSizeName,
+             return_everything = TRUE)
+rrcpar <- reduced_reg_corrected_power_anova$full_model %>%
+  broom::tidy() %>%
+  filter(p.value <= 0.1)
+```
+
+
+#### Full regression summary
+
+```{r}
+reduced_reg_corrected_power_anova$regsum %>%
+  zachs_kable_sub("latex",  booktabs = T,
+               label="setal-power-fullregress",
+               caption="The summary of the full interaction model for the HS18 Type I-corrected power in Study 1.") 
+```
+
+#### Full plot
+
+```{r, fig.cap=paste("Power (corrected for Type I error rates) for both analysis approaches on the HS18 data.", effect_size_text)}
+paper_reg_powercorrected<- summarized_reg_data %>%
+  filter(Nitems==Nsubj) %>%
+  base_plot_power(giant_grouping_vars, is_corrected = TRUE) +
+  exp_power_mods
+paper_reg_powercorrected %>% add_results_ornaments()
+```
+
+### F13
+
+#### Full plot
+
+```{r, fig.cap=paste("Power (corrected for Type I error rates) for both analysis approaches on the F13 data.", effect_size_text)}
+p <- summarized_fetal_data %>%
+  filter(Nitems==Nsubj) %>%
+  base_plot_power(giant_grouping_vars, is_corrected = TRUE) +
+  exp_power_mods
+p %>% add_results_ornaments()
+```
+
+### NSC
+
+#### Full plot: all story numbers
+
+```{r, fig.cap=paste("Power (corrected for Type I error rates) for both analysis approaches on the NSC data with effect sizes of 15 and 56 ms.", nsc_story_text, effect_size_text, "\\label{Figure:nsc_giant_corrected_power}")}
+p <- summarized_nsc_data %>%
+  filter(Nitems==Nsubj, EffectSizeName=="medium") %>%
+  base_plot_power(giant_grouping_vars, is_corrected = TRUE) +
+  power_mods +
+  facet_grid(vars(Nstories), vars(SampleName),
+             labeller = label_value) +
+  scale_y_continuous(sec.axis = dup_axis(
+    name="Subsampled stories",
+    breaks=c(-Inf, Inf), labels = NULL))
+p %>% add_results_ornaments()
+```
+
+#### Full plot: all effect sizes
+
+```{r, fig.cap=paste("Power (corrected for Type I error rates) for both analysis approaches on the NSC data with the number of stories sampled from set to the value in the main paper: four.", nsc_story_text, effect_size_text, "\\label{Figure:nsc_giant_corrected_power_effect_size}")}
+p <- summarized_nsc_data %>%
+  filter(Nitems==Nsubj, Nstories==4) %>%
+  base_plot_power(giant_grouping_vars, is_corrected = TRUE) +
+  exp_power_mods
+p %>% add_results_ornaments()
+```
+
+
+# Study 2
+
+```{r}
+study2_analysis_row_for_SI <- list(
+  facet_grid(vars(Analysis), vars(Distribution), 
+             labeller = label_value),
+  scale_y_continuous(sec.axis = dup_axis(
+    name="Analysis approach", 
+    breaks=c(-Inf, Inf), labels=NULL)))
+
+```
+
+
+## Convergence failures
+
+```{r, para together conv analysis, eval=FALSE}
+para_conv_anova <- summarized_para_data %>%
+  # filter(Distribution=="Parametric normal")
+  prepare_summed_conv_data(para_grouping_vars) %>%
+  auto_anova(Analysis, Nsubj, Distribution, EffectSizeName,
+             return_everything = TRUE)
+
+para_conv_anova$omni_tests %>%
+  format_omnibus() %>%
+  zachs_kable_sub(
+    "latex", escape = FALSE, booktabs = T,
+    label="para-conv-anova",
+    caption = paste(
+      omnibus_table_intro,
+      "the Study 2 rates of convergence failure,",
+      omnibus_table_mid,
+      "(i.e., sample size, distribution, effect size, and analysis approach)",
+      omnibus_table_end))    %>%
+  omni_formatter_ft()
+```
+
+### Full plot
+
+```{r, fig.cap=paste("The convergence rate for the Study 2 parametrically-generated data.", binom_ci_text)}
+si_para_convergence <- summarized_para_data %>%
+  base_plot_convergence(para_grouping_vars) +
+  aes(color = EffectSizeName) +
+  study2_analysis_row_for_SI +
+  effect_size_color_scale
+si_para_convergence <- si_para_convergence %>% add_distro_top()
+si_para_convergence
+```
+
+
+
+## Singular fits
+
+```{r para together singfit, eval=FALSE} 
+para_singfit_anova <- summarized_para_data %>%
+  prepare_summed_singfit_data(para_grouping_vars) %>%
+  auto_anova(Analysis, Nsubj, Distribution, EffectSizeName,
+             return_everything = TRUE)
+
+para_singfit_anova$omni_tests %>%
+  format_omnibus() %>%
+  zachs_kable_sub(
+    "latex", escape = FALSE, booktabs = T,
+    label="para-singfit-anova",
+    caption = paste(
+      omnibus_table_intro,
+      "the Study 2 rates of singular fit,",
+      omnibus_table_mid,
+      "(i.e., sample size, distribution, effect size, and analysis approach)",
+      omnibus_table_end))    %>%
+  omni_formatter_ft()
+
+reduced_para_singfit_anova <- summarized_para_data %>% 
+  filter(Nsubj %in% c(8, 16)) %>%
+  prepare_summed_singfit_data(para_grouping_vars) %>%
+  auto_anova(Analysis, Nsubj, Distribution, EffectSizeName,
+             return_everything = TRUE)
+rpnsar <- broom::tidy(reduced_para_singfit_anova$full_model) %>%
+  filter(p.value <= 0.1)
+```
+
+
+### Full plot
+
+```{r, fig.cap=paste("The proportion of models with singular fits from the Study 2 parametrically-generated data.", binom_ci_text, small_ci_text)}
+
+si_para_singfit <- summarized_para_data %>%
+  base_plot_singfit(para_grouping_vars) +
+  aes(color = EffectSizeName) +
+  study2_analysis_row_for_SI +
+  effect_size_color_scale
+si_para_singfit <- si_para_singfit %>% add_distro_top()
+si_para_singfit
+
+```
+
+## Type I errors
+
+```{r para together type I, eval=FALSE} 
+para_type1_anova <- summarized_para_data %>%
+  prepare_summed_type1_data(para_grouping_vars) %>%
+  auto_anova(Analysis, Distribution, Nsubj,
+             return_everything = TRUE)
+
+para_type1_anova$omni_tests %>%
+  format_omnibus() %>%
+  zachs_kable_sub(
+    "latex", escape = FALSE, booktabs = T,
+    label="para-type1-anova",
+    caption = paste(
+      omnibus_table_intro,
+      "the Study 2 Type I error rates,",
+      omnibus_table_mid,
+      "(i.e., sample size, distribution, and analysis approach)",
+      omnibus_table_end))  %>%
+  omni_formatter_ft()  
+```
+
+## Power (uncorrected)
+ 
+```{r para together uncorrected, eval=FALSE}
+para_uncorrected_power_anova <- summarized_para_data %>%
+  prepare_summed_power_data(para_grouping_vars, 
+                            is_corrected = FALSE) %>%
+  auto_anova(Analysis, Nsubj, Distribution, EffectSizeName,
+             return_everything = TRUE)
+
+para_uncorrected_power_anova$omni_tests %>%
+  format_omnibus() %>%
+  zachs_kable_sub(
+    "latex", escape = FALSE, booktabs = T,
+    label="para-uncorrected-power-anova",
+    caption = paste(
+      omnibus_table_intro,
+      "the Study 2 power,",
+      omnibus_table_mid,
+      "(i.e., sample size, distribution, effect size, and analysis approach)",
+      omnibus_table_end))    %>%
+  omni_formatter_ft()
+
+reduced_para_uncorrected_power_anova <- summarized_para_data %>% 
+  filter(Nsubj %in% c(8, 16, 32)) %>%
+  prepare_summed_power_data(para_grouping_vars) %>%
+  auto_anova(Analysis, Nsubj, Distribution, EffectSizeName,
+             return_everything = TRUE)
+rpnupar <- broom::tidy(reduced_para_uncorrected_power_anova$full_model) %>%
+  filter(p.value <= 0.1)
+```
+
+### Full plot
+
+```{r, fig.cap=paste("Power (uncorrected) for both analysis approaches on the parametric HS18 data.", effect_size_text)}
+p<-summarized_para_data %>%
+  base_plot_power(para_grouping_vars,
+                  is_corrected = FALSE) +
+  aes(color=Analysis, group=Analysis) +
+  facet_grid(vars(EffectSizeName), vars(Distribution), 
+             labeller = label_value) +
+  scale_y_continuous(sec.axis = dup_axis(
+    name="Effect size", 
+    breaks=c(-Inf, Inf), labels=NULL)) +
+  # study1_exp_row +
+  scale_color_manual("Analysis approach", 
+                     values = analysis_colors,
+                     labels = analysis_labels) 
+p %>% add_distro_top()
+
+```
+
+## Power (corrected)
+  
+```{r para together corrected power, eval=FALSE}
+para_corrected_power_text <- summarized_para_data %>% 
+  prepare_summed_power_data(para_grouping_vars, is_corrected = TRUE) %>%
+  get_descriptive_stats(!!!para_grouping_vars,
+                        say_greater=FALSE) %>%
+  output_descriptive_stats(intro_text = "For the parametrically generated HS18 data, ",
+                           stat_text = "Type I-corrected power",
+                           at_val = 0.8,
+                           say_greater=FALSE)
+
+para_corrected_power_anova <- summarized_para_data %>%
+  prepare_summed_power_data(para_grouping_vars, 
+                            is_corrected = TRUE) %>%
+  auto_anova(Analysis, Nsubj, Distribution, EffectSizeName,
+             return_everything = TRUE)
+
+para_corrected_power_anova$omni_tests %>%
+  format_omnibus() %>%
+  zachs_kable_sub(
+    "latex", escape = FALSE, booktabs = T,
+    label="para-corrected-power-anova",
+    caption = paste(
+      omnibus_table_intro,
+      "the Study 2 Type I-corrected power,",
+      omnibus_table_mid,
+      "(i.e., sample size, distribution, effect size, and analysis approach)",
+      omnibus_table_end))   %>%
+  omni_formatter_ft() 
+
+reduced_para_corrected_power_anova <- summarized_para_data %>% 
+  filter(Nsubj %in% c(8, 16, 32)) %>%
+  prepare_summed_power_data(para_grouping_vars) %>%
+  auto_anova(Analysis, Nsubj, Distribution, EffectSizeName,
+             return_everything = TRUE)
+rpncpar <- broom::tidy(reduced_para_corrected_power_anova$full_model) %>%
+  filter(p.value <= 0.1)
+
+reduced_para_corrected_power_anova$regsum %>%
+  zachs_kable_sub("latex",  booktabs = T,
+               label="study2-power-fullregress",
+               caption="The summary of the full interaction model for the Type I-corrected power on the parametrically-generated HS18 data in Study 2.") 
+
+
+```
+
+
+# Study 3
+ 
+```{r}
+new_bins <- structure(list(bin1 = c(3, 7), 
+                           bin2 = c(44, 50), 
+                           bin3 = c(108, 115)), 
+                      .Names = c("bin1", "bin2", "bin3"))
+bins_df <- setal_excl %>%
+  mutate(Bin = case_when(
+    new_bins$bin1[[1]] <= Trial.Order & Trial.Order <= new_bins$bin1[[2]] ~ "high",
+    new_bins$bin2[[1]] <= Trial.Order & Trial.Order <= new_bins$bin2[[2]] ~ "medium",
+    new_bins$bin3[[1]] <= Trial.Order & Trial.Order <= new_bins$bin3[[2]] ~ "low",
+    TRUE ~ NA_character_
+  )) %>%
+  filter(!is.na(Bin)) %>%
+  mutate(Bin = factor(Bin, levels=c("high","medium","low"))) %>%
+  mutate(`mean RT` = Bin) %>%
+  filter(Structure == "Filler")
+
+study4_analysis_row_for_SI <- list(
+  aes(shape=Space),
+  scale_shape_discrete(space_text),
+  facet_grid(vars(Analysis), vars(`mean RT`), 
+             labeller = label_value),
+  scale_y_continuous(sec.axis = dup_axis(
+    name="Analysis approach", 
+    breaks=c(-Inf, Inf), labels=NULL)))
+```
+
+
+## Figure 1 for the three mean RTs of HS18
+
+```{r make binned distribution plot}
+p.distr.bins.a <- bins_df %>% filter(`mean RT`=="high") %>%
+  make_RTdensity_panel("RT", "mean RT: high") +
+  scale_y_continuous("density") +
+  lambda_geom(200, RT, 1, FALSE) 
+p.distr.bins.b <- bins_df %>% filter(`mean RT`=="medium") %>%
+  make_RTdensity_panel("RT", "mean RT: medium") +
+  lambda_geom(200, RT, 1, FALSE) 
+p.distr.bins.c <- bins_df %>% filter(`mean RT`=="low") %>%
+  make_RTdensity_panel("RT", "mean RT: low") +
+  lambda_geom(200, RT, 1, FALSE)  
+
+p.distr.bins.plot_grid <- plot_grid(p.distr.bins.a, p.distr.bins.b, p.distr.bins.c, 
+                                    nrow=1,  align="h",
+                                    labels=c("A","B","C"))
+
+ 
+
+# p.distr.log.a <- setal_all_RTs %>% filter(Structure=="Filler") %>%
+#   filter(!is.infinite(log10(RT))) %>%
+#   make_RTdensity_panel("log10(RT)", "Word-by-word log-RTs", geom="abs_label", alpha=0.25) + scale_y_continuous("density")
+# p.distr.log.b <- setal_excl %>% filter(Structure=="Filler") %>%
+#   make_RTdensity_panel("log10(RT)", "Outliers removed", geom="abs_label", alpha=0.5) +
+#   theme(panel.background = element_rect(fill="#efefef", size=3, color="#c1c1c1"))
+# p.distr.log.c <- setal_excl %>% filter(Structure=="Filler") %>%
+#   make_RTdensity_panel("WLLogResid", "Length-corrected", geom="abs_label", alpha=0.5)
+# p.distr.log.d <- setal_excl %>% filter(Structure=="Filler") %>%
+#   filter(Word.Order %in% c(2, 3, 4)) %>%
+#   #--------------------
+#   group_by(Subject, Trial.Order, Group) %>%
+#   summarise_at(vars(RT, WLLogResid), mean) %>%
+#   ungroup() %>%
+#   #--------------------
+#   make_RTdensity_panel("WLLogResid", "Example 3-word region", geom="abs_label", alpha=0.5)
+# p.distr.log.e <- setal_excl %>% filter(Structure != "Filler") %>%
+#   filter(Region=="disambiguation") %>%
+#   #--------------------
+#   group_by(Subject, Trial.Order, Group, Structure) %>%
+#   summarise_at(vars(RT, WLLogResid), mean) %>%
+#   ungroup() %>%
+#   #--------------------
+#   mutate(ypos_val = ifelse(Structure=="RC", 0.85, 0.55)) %>%
+#   ggplot(aes_string(x="WLLogResid", color="Structure")) +
+#   geom_density() +
+#   zplyr::stat_moments(aes(xpos = 0.7, ypos = ypos_val), sig=T, 
+#                       moment="both", size =2.5, alpha=0.5,
+#                       excess_kurtosis = T, geom="abs_label") +
+#   scale_x_continuous("Actual critical regions") +
+#   scale_y_continuous("") +
+#   scale_color_discrete("") +
+#   p.distr.theme +
+#   theme(legend.position = c(0.65, 0.2),
+#         legend.direction = "horizontal",
+#         legend.background = element_blank(),
+#         legend.text =  element_text(size=rel(0.7)),
+#         legend.title = element_text(size=rel(0.7)))
+# 
+# p.distr.log.final <- plot_grid(p.distr.log.a, p.distr.log.b, p.distr.log.c, p.distr.log.d,
+#                                NULL,          NULL,          NULL,          p.distr.log.e,
+#                                nrow=2,  align="h",
+#                                labels=c("A","B","C","D","","","","E"))
+```
+
+```{r}
+p.distr.bins.plot_grid
+```
+
+
+
+
+## Convergence failures
+
+
+```{r making the study4 convergence text}
+binned_conv_text <- summarized_binned_data %>%
+  prepare_summed_conv_data(binned_grouping_vars) %>%
+  get_descriptive_stats(!!!binned_grouping_vars) %>%
+  output_descriptive_stats(intro_text = "For the mean RT HS18 simulations, ",
+                           stat_text = "rates of convergence failures",
+                           at_val = 0.01)
+```
+
+### Full plot
+
+```{r, fig.cap=paste("The convergence rate for the Study 3 mean RT data.", binom_ci_text, small_ci_text)}
+si_binned_convergence <- summarized_binned_data %>%
+  base_plot_convergence(binned_grouping_vars) +
+  aes(color = EffectSizeName) +
+  study4_analysis_row_for_SI +
+  effect_size_color_scale
+si_binned_convergence <- si_binned_convergence %>% add_mean_rt_top()
+si_binned_convergence
+```
+
+
+## Singular fits
+
+```{r making study4 singfit text} 
+# binned_singfit_text <- summarized_binned_data %>% 
+#   filter(Nitems==Nsubj) %>%
+#   prepare_summed_singfit_data(binned_grouping_vars) %>%
+#   get_descriptive_stats(!!!binned_grouping_vars) %>%
+#   output_descriptive_stats(intro_text = "For the Study 3 simulations, ",
+#                            stat_text = "rates of singular fit",
+#                            at_val = 0.1)
+``` 
+
+### Full plot
+
+```{r, fig.cap=paste("The proportion of models with singular fits from the Study 3 mean RT data.", binom_ci_text, small_ci_text)}
+si_binned_singfit <- summarized_binned_data %>%
+  base_plot_singfit(binned_grouping_vars) +
+  aes(color = EffectSizeName) +
+  study4_analysis_row_for_SI +
+  effect_size_color_scale
+si_binned_singfit <- si_binned_singfit %>% add_mean_rt_top()
+si_binned_singfit
+
+# # The version that plots the mean RTs side by side
+# si_binned_singfit2 <- summarized_binned_data %>%
+#   base_plot_singfit(binned_grouping_vars) +
+#   aes(color = `mean RT`) +
+#   aes(shape=Space) +
+#   scale_shape_discrete(space_text) +
+#   facet_grid(vars(Analysis), vars(EffectSizeName), 
+#              labeller = label_value)  +
+#   mean_RT_color_scale
+# si_binned_singfit2 <- si_binned_singfit2 %>% add_mean_rt_top()
+# si_binned_singfit2
+```
+
+## Type I errors
+
+```{r making Study 3 type 1 text}
+
+binned_type1_text <- summarized_binned_data %>% 
+  prepare_summed_type1_data(binned_grouping_vars) %>%
+  get_descriptive_stats(!!!binned_grouping_vars,
+                        say_greater = TRUE) %>%
+  output_descriptive_stats(intro_text = "For the mean RT HS18 simulations, ",
+                           stat_text = "Type I error rates",
+                           say_greater = TRUE,
+                           at_val = 0.05,
+                           used_smoothing = FALSE)
+
+closer_than_type1_binned_text <- summarized_binned_data %>% 
+  prepare_summed_type1_data(binned_grouping_vars) %>%
+  get_stat_closer_to_05_df(!!!binned_grouping_vars) %>%
+  {
+    paste("However, the Type I error rates of the log-transformed analysis approach were closer to 0.05 (measured in log-odds) than the standard approach for", .$total_is_closer[1], "of the", .$total[1], "simulations.")
+  }
+```
+
+## Power (uncorrected)
+
+```{r} 
+binned_power_mods <- list(
+  aes(shape = EffectSizeName, 
+      group=paste(Analysis, Space, EffectSize)),
+  scale_shape_discrete("Effect size"),
+  facet_grid(vars(Space), vars(`mean RT`),
+             labeller = label_value),
+  scale_y_continuous(sec.axis = dup_axis(
+    name=space_text,
+    breaks=c(-Inf, Inf), labels = NULL))
+)
+binned_power_mods <- append(power_mods, binned_power_mods)
+
+```
+
+```{r making Study 3 uncorrected power text}
+binned_uncorrected_power_text_raw <- summarized_binned_data %>% 
+  filter(Space=="Raw RTs") %>%
+  filter(Nitems==Nsubj) %>%
+  prepare_summed_power_data(binned_grouping_vars, is_corrected = FALSE) %>%
+  get_descriptive_stats(!!!binned_grouping_vars,
+                        say_greater=TRUE) %>%
+  output_descriptive_stats(intro_text = "For the mean RT simulations, ",
+                           stat_text = "power",
+                           at_val = 0.8,
+                           say_greater=TRUE)
+```
+
+
+### Plot
+
+```{r, fig.cap=paste("Power (uncorrected) for both analysis approaches on the mean RT HS18 data.", effect_size_text) }
+paper_binned_poweruncorrected <- summarized_binned_data %>%
+  base_plot_power(binned_grouping_vars, 
+                  is_corrected = FALSE) +
+  binned_power_mods
+
+paper_binned_poweruncorrected %>% add_mean_rt_top()
+```
+
+## Power (corrected for Type I error rate)
+
+```{r making Study 3 corrected power text}
+binned_corrected_power_text <- summarized_binned_data %>% 
+  prepare_summed_power_data(binned_grouping_vars,
+                            is_corrected = TRUE) %>%
+  get_descriptive_stats(!!!binned_grouping_vars,
+                        say_greater=TRUE) %>%
+  output_descriptive_stats(intro_text = "For the mean RT HS18 simulations, ",
+                           stat_text = "Type I-corrected power",
+                           at_val = 0.8,
+                           say_greater=TRUE)
+
+```
+
+# Study 4
+
+```{r int study wide fns}
+# for the paper plots
+int_analysis_row <- list(
+  facet_grid(vars(Space), vars(Direction), 
+             labeller = label_value),
+  aes(color = Analysis),
+  scale_color_manual("Analysis approach", 
+                     values = analysis_colors,
+                     labels = analysis_labels),
+  scale_y_continuous(sec.axis = dup_axis(name=space_text,
+                                         breaks=NULL))
+  )
+
+int_analysis_row_for_SI <- list(
+  aes(shape=Space),
+  scale_shape_discrete(space_text),
+  facet_grid(vars(Analysis), vars(Direction), 
+             labeller = label_value),
+  scale_y_continuous(sec.axis = dup_axis(
+    name="Analysis approach", 
+    breaks=c(-Inf, Inf), labels=NULL)),
+  smaller_legends_theme)
+
+effect_type_name_changer <- function(.data) {
+  .data %>%
+    mutate(Type = ifelse(Type=="all","both",Type)) %>%
+    mutate(Type = factor(Type, levels=c("none","interaction","main","both")))
+}
+
+# this is for the convergence and singular fit plots
+preprep_int_plots_no_power <- function(.data) {
+  .data %>%
+    effect_type_name_changer() %>%
+    filter(term=="Block") %>%
+    mutate(Analysis = analysis_labels[Analysis] %>% set_names(NULL)) %>%
+    mutate(Analysis = factor(Analysis, levels=set_names(analysis_labels, NULL))) %>%
+  mutate(Nsubj = as.factor(Nsubj), Nitems = as.factor(Nitems))
+}
+
+int_power_mods <- list(
+  geom_line(),
+  geom_pointrange(aes(ymax=Upper, ymin=Lower)),
+  xlab(subject_text),
+  int_analysis_row,
+  facet_grid(vars(Space), vars(Direction), 
+             labeller = label_value),
+  aes(shape = Type2),
+  scale_shape_manual("Both effects\npresent?",
+                     values=c(`TRUE`=3,`FALSE`=4),
+                     labels=c(`TRUE`=TRUE,`FALSE`=FALSE)),
+  scale_y_continuous(sec.axis = dup_axis(name=space_text,
+                                         breaks=NULL))
+)
+
+
+# For the interaction power plots (probably in the paper)
+prep_int_plots_power <- function(.data, term_val, is_corrected=TRUE) {
+  if (is_corrected)
+    stat_quo = expr(round(CorrectedStat * n))
+  else
+    stat_quo = expr(round(Stat * n))
+  
+  .data %>%
+    effect_type_name_changer() %>%
+    filter(term == term_val) %>%
+    mutate(Analysis = analysis_labels[Analysis] %>% set_names(NULL)) %>%
+    mutate(Analysis = Analysis %>%
+             factor(levels=set_names(analysis_labels, NULL))) %>%
+    mutate(y = !!stat_quo) %>%
+    filter(PorT == "power") %>%
+    {cbind(., as_tibble(Hmisc::binconf(.$y, .$n)))} %>% 
+    mutate(Nsubj = as.factor(Nsubj)) %>%
+    mutate(Type2 = as.character(Type %in% c("both","all")))
+}
+```
+
+### Full plot
+
+```{r si-int-conv-plot, fig.cap=paste("The convergence rate for the Study 4 data.", binom_ci_text, small_ci_text)}
+si_int_convergence <-
+  summarized_int_data %>%
+  preprep_int_plots_no_power() %>%
+  mutate(y=og_n-n, n=og_n) %>%
+  {cbind(., as_tibble(Hmisc::binconf(.$y, .$n)))}  %>%
+  # mutate(PointEst=y) %>%
+  ggplot(aes(x = Nsubj, y = PointEst)) +
+  # geom_point(position = position_dodge(def_dodge_width)) +
+  geom_pointrange(aes(ymax=Upper, ymin=Lower), 
+                  position = position_dodge(def_dodge_width)) +
+  ylab(convergence_y_text_si) +
+  xlab(subject_text) +
+  aes(color = Type) +
+  aes(shape=Space) +
+  int_analysis_row_for_SI +
+  smallest_legends_theme +
+  effect_type_color_scale #+
+  # aes(shape=Analysis) + facet_grid(vars(Space), vars(Direction), 
+  #            labeller = label_value)
+  
+si_int_convergence <- si_int_convergence %>% add_direction_top()
+si_int_convergence
+```
+
+
+## Singular fits
+
+```{r}
+int_singfit_text <- summarized_int_data %>%
+  preprep_int_plots_no_power() %>%
+  mutate(y=n_singfits) %>%
+  {cbind(., as_tibble(Hmisc::binconf(.$n_singfits, .$n)))} %>%
+  get_descriptive_stats(!!!int_grouping_vars, Type) %>%
+  output_descriptive_stats(intro_text = "For the interaction HS18 simulations, ",
+                           stat_text = "rates of singular fit",
+                           at_val = 0.1)
+```
+
+
+### Full plot
+
+```{r singfit-int-plots, fig.cap=paste("The rate of singular fit for the Study 4 data.", binom_ci_text, small_ci_text)}
+si_int_singfit <- summarized_int_data %>%
+  preprep_int_plots_no_power() %>%
+  mutate(y=n_singfits) %>%
+  {cbind(., as_tibble(Hmisc::binconf(.$n_singfits, .$n)))} %>%
+  ggplot(aes(x = Nsubj, y = PointEst)) +
+  geom_pointrange(aes(ymax=Upper,ymin=Lower), 
+                  position = position_dodge(0.5)) +
+  ylab(singfit_y_text) +
+  xlab(subject_text) +
+  aes(color = Type) +
+  int_analysis_row_for_SI +
+  smallest_legends_theme +
+  effect_type_color_scale
+si_int_singfit <- si_int_singfit %>% add_direction_top()
+si_int_singfit
+```
+
+
+
+## Type I errors
+
+```{r}
+int_type1_data_maker <- function(df, ...) {
+  qs <- enquos(...)
+  df %>%
+    effect_type_name_changer() %>%
+    filter(!!!qs) %>%
+    mutate(Analysis = analysis_labels[Analysis] %>% set_names(NULL)) %>%
+    mutate(Analysis = factor(Analysis, levels=set_names(analysis_labels, NULL))) %>%
+    mutate(y=Stat*n) %>%
+    {cbind(., as_tibble(Hmisc::binconf(.$y, .$n)))} %>%
+    mutate(Nsubj = as.factor(Nsubj), Nitems = as.factor(Nitems))
+}
+
+int_type1_maineffect_df <- summarized_int_data %>%
+  int_type1_data_maker(term=="MainEffect", !(Type %in% c("main", "both")))
+int_type1_interaction_df <- summarized_int_data %>%
+  int_type1_data_maker(term=="Interaction", !(Type %in% c("interaction", "both"))) %>%
+  filter(Block1Code==1) # it's redundant since there is no interaction
+
+int_type1_main_text <- int_type1_maineffect_df %>%
+  get_descriptive_stats(!!!int_grouping_vars, Type,
+                        say_greater = TRUE) %>%
+  output_descriptive_stats(
+    intro_text = "For the main effect of the interaction HS18 simulations, ",
+    stat_text = "Type I error rates",
+    say_greater = TRUE,
+    at_val = 0.05,
+    used_smoothing = FALSE)
+
+int_type1_int_text <- int_type1_interaction_df %>%
+  get_descriptive_stats(!!!int_grouping_vars, Type,
+                        say_greater = TRUE) %>%
+  output_descriptive_stats(
+    intro_text = "For the interaction effect of the interaction HS18 simulations, ",
+    stat_text = "Type I error rates",
+    say_greater = TRUE,
+    at_val = 0.05,
+    used_smoothing = FALSE)
+
+closer_than_type1_int_text_int <- int_type1_interaction_df %>%
+  get_stat_closer_to_05_df(!!!int_grouping_vars, Type) %>%
+  {
+    paste("However, for the interaction effect, the Type I error rates of the log-transformed analysis approach were closer to 0.05 (measured in log-odds) than the standard approach for", .$total_is_closer[1], "of the", .$total[1], "simulations.")
+  }
+
+```
+
+### For the main effect
+
+#### Full plot
+
+```{r int-type1-plot-main, fig.cap=paste("The Type I error rate of the null main effect from the Study 4 data.", binom_ci_text, small_ci_text)}
+si_int_type1_maineffect <- int_type1_maineffect_df %>%
+  ggplot(aes(x = Nsubj, y = PointEst)) +
+  geom_pointrange(aes(ymax=Upper, ymin=Lower), 
+                  position = position_dodge(def_dodge_width)) +
+  geom_hline(yintercept=0.05, linetype="dashed") +
+  ylab(paste0("Type I error rate for:\n", "main effect")) +
+  xlab(subject_text) + 
+  scale_y_continuous(sec.axis = dup_axis(
+    name="Effects present:", 
+    breaks=c(-Inf, Inf), labels=NULL)) +
+  aes(shape = Space, color=Analysis) +
+  facet_grid(vars(Type), vars(Direction), 
+             labeller = label_value) +
+  scale_shape(space_header) +
+  scale_color_manual("Analysis\napproach", 
+                     values = analysis_colors,
+                     labels = analysis_labels)
+si_int_type1_maineffect <- si_int_type1_maineffect %>% add_direction_top()
+si_int_type1_maineffect
+```
+
+### For the interaction effect
+
+#### Full plot
+  
+```{r int-type1-plot-int, fig.cap=paste("The Type I error rate of the null interaction effect from the Study 4 data.", binom_ci_text, small_ci_text)}
+si_int_type1_interaction <- int_type1_interaction_df %>%
+  ggplot(aes(x = Nsubj, y = PointEst)) +
+  geom_pointrange(aes(ymax=Upper, ymin=Lower), 
+                  position = position_dodge(def_dodge_width)) +
+  geom_hline(yintercept=0.05, linetype="dashed") +
+  ylab(paste0("Type I error rate for:\n", "interaction effect")) +
+  xlab(subject_text) + 
+  scale_y_continuous(sec.axis = dup_axis(
+    name="Effects present:", 
+    breaks=c(-Inf, Inf), labels=NULL)) +
+  aes(shape = Space, color=Analysis) +
+  facet_grid(vars(Type),  
+             labeller = label_value) +
+  scale_shape(space_header) +
+  scale_color_manual("Analysis\napproach", 
+                     values = analysis_colors,
+                     labels = analysis_labels)
+si_int_type1_interaction
+```
+
+
+## Power (uncorrected)
+
+```{r making Study 4 uncorrected power text}
+int_main_uncorrected_power_text <- summarized_int_data %>%
+  prep_int_plots_power(term_val = "MainEffect",
+                       is_corrected=FALSE) %>%
+  get_descriptive_stats(!!!int_grouping_vars, Type,
+                        say_greater=TRUE) %>%
+  output_descriptive_stats(intro_text = "For the main effect of the interaction simulations of Study 4, ",
+                           stat_text = "power",
+                           at_val = 0.8,
+                           say_greater=TRUE)
+
+int_int_uncorrected_power_text <- summarized_int_data %>%
+  prep_int_plots_power(term_val = "Interaction",
+                       is_corrected=FALSE) %>%
+  get_descriptive_stats(!!!int_grouping_vars, Type,
+                        say_greater=TRUE) %>%
+  output_descriptive_stats(intro_text = "For the interaction effect of the interaction simulations of Study 4, ",
+                           stat_text = "power",
+                           at_val = 0.8,
+                           say_greater=TRUE)
+```
+
+### For the main effect
+
+#### Full plot
+
+```{r}
+si_int_power_uncorrected_main <- summarized_int_data %>%
+  prep_int_plots_power(term_val = "MainEffect",
+                       is_corrected=FALSE) %>%
+  ggplot(aes(x = Nsubj, y = PointEst,
+             group = paste(Analysis, Space, Direction, Type))) +
+  int_power_mods  +
+  ylab(paste0(power_text, "\nfor main effect"))
+si_int_power_uncorrected_main <- si_int_power_uncorrected_main %>% add_direction_top()
+si_int_power_uncorrected_main
+```
+
+### For the interaction effect
+
+#### Full plot
+
+```{r}
+si_int_power_uncorrected_int <- summarized_int_data %>%
+  prep_int_plots_power(term_val = "Interaction",
+                       is_corrected=FALSE) %>%
+  ggplot(aes(x = Nsubj, y = PointEst,
+             group = paste(Analysis, Space, Direction, Type))) +
+  int_power_mods  +
+  ylab(paste0(power_text, "\nfor interaction effect"))
+si_int_power_uncorrected_int <- si_int_power_uncorrected_int %>% add_direction_top()
+si_int_power_uncorrected_int
+```
+
+## Power (corrected for Type I error rate)
+
+```{r making Study 4 corrected power text} 
+int_main_corrected_power_text <- summarized_int_data %>%
+  prep_int_plots_power(term_val = "MainEffect",
+                       is_corrected=TRUE) %>%
+  get_descriptive_stats(!!!int_grouping_vars, Type,
+                        say_greater=TRUE) %>%
+  output_descriptive_stats(intro_text = "For the main effect of the interaction simulations of Study 4, ",
+                           stat_text = "power",
+                           at_val = 0.8,
+                           say_greater=TRUE)
+
+int_int_corrected_power_text <- summarized_int_data %>%
+  prep_int_plots_power(term_val = "Interaction",
+                       is_corrected=TRUE) %>%
+  get_descriptive_stats(!!!int_grouping_vars, Type,
+                        say_greater=TRUE) %>%
+  output_descriptive_stats(intro_text = "For the interaction effect of the interaction simulations of Study 4, ",
+                           stat_text = "power",
+                           at_val = 0.8,
+                           say_greater=TRUE)
+
+```
+
+### For the main effect
+
+#### Full plot
+
+```{r}
+si_int_power_corrected_main <- summarized_int_data %>%
+  prep_int_plots_power(term_val = "MainEffect",
+                       is_corrected=TRUE) %>%
+  ggplot(aes(x = Nsubj, y = PointEst,
+             group = paste(Analysis, Space, Direction, Type))) +
+  int_power_mods  +
+  ylab(paste0(corrected_power_text, "\nfor main effect"))
+si_int_power_corrected_main <- si_int_power_corrected_main %>% add_direction_top()
+si_int_power_corrected_main
+```
+
+### For the interaction effect
+
+#### Full plot
+
+```{r}
+si_int_power_corrected_int <- summarized_int_data %>%
+  prep_int_plots_power(term_val = "Interaction",
+                       is_corrected=TRUE) %>%
+  ggplot(aes(x = Nsubj, y = PointEst,
+             group = paste(Analysis, Space, Direction, Type))) +
+  int_power_mods  +
+  ylab(paste0(corrected_power_text, "\nfor interaction effect"))
+si_int_power_corrected_int <- si_int_power_corrected_int %>% add_direction_top()
+si_int_power_corrected_int
+``` 
+
+```{r, child="child.Rmd", eval=TRUE}
+```
+
+
+
+```{r} 
+# beepr::beep(3)
+# message(capture.output(tictoc::toc()))
+```
+

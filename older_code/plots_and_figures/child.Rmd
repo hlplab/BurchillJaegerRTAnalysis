@@ -1,0 +1,2123 @@
+
+
+ 
+# Paper plots
+ 
+```{r}
+theme_update(legend.position = "right")
+```
+
+## Shape of distributions (HS18): Figure 1.
+
+```{r make setal paper plot}
+p.distr.a <- setal_all_RTs %>% filter(Structure=="Filler") %>%
+  make_RTdensity_panel("RT", "Word-by-word RTs (ms)") + 
+  scale_y_continuous("density") +
+  lambda_geom(200,RT,1,FALSE,ypos=0.59) +
+  theme(axis.text.x = element_text(),
+        axis.ticks.x=element_line()) +
+  scale_x_continuous("Word-by-word RTs (ms)",
+                     breaks=c(0,2.5e+05,5e+05))
+  
+p.distr.b <- setal_excl %>% filter(Structure=="Filler") %>%
+  make_RTdensity_panel("RT", "Outliers removed (ms)") +
+  lambda_geom(200,RT,1,FALSE, ypos=0.59) +
+  theme(axis.text.x = element_text(),
+        axis.ticks.x=element_line()) #+
+  # theme(panel.background = element_rect(fill="#efefef", size=3, color="#c1c1c1"))
+p.distr.c <- setal_excl %>% filter(Structure=="Filler") %>%
+  make_RTdensity_panel("WLResid", "Length-corrected (ms)") +
+  lambda_geom(0,WLResid,1,FALSE,ypos=0.59)  +
+  theme(axis.text.x = element_text(),
+        axis.ticks.x=element_line())
+p.distr.d <- setal_excl %>% filter(Structure=="Filler") %>%
+  filter(Word.Order %in% c(2, 3, 4)) %>%
+  #--------------------
+  group_by(Subject, Trial.Order, Group) %>%
+  summarise_at(vars(RT, WLResid), mean) %>%
+  ungroup() %>%
+  #--------------------
+  make_RTdensity_panel("WLResid", "3-word regions (ms)")+
+  lambda_geom(0,WLResid,1,FALSE,ypos=0.59) +
+  theme(axis.text.x = element_text(),
+        axis.ticks.x=element_line()) 
+p.distr.e <- setal_excl %>% filter(Structure != "Filler") %>%
+  filter(Region=="disambiguation") %>%
+  #--------------------
+  group_by(Subject, Trial.Order, Group, Structure) %>%
+  summarise_at(vars(RT, WLResid), mean) %>%
+  ungroup() %>%
+  #--------------------
+  mutate(ypos_val = ifelse(Structure=="RC", 0.85, 0.55)) %>%
+  ggplot(aes_string(x="WLResid", color="Structure")) +
+  geom_density() +
+  zplyr::stat_moments(aes(xpos=0.6, ypos=ypos_val), 
+                      sig=T, moment="both", excess_kurtosis = T,
+                      size= 3, geom="abs_text") +
+  scale_x_continuous("Actual critical regions") +
+  scale_y_continuous("") +
+  scale_color_discrete("") +
+  p.distr.theme +
+  theme(legend.position = c(0.65, 0.2),
+        legend.direction = "horizontal",
+        legend.background = element_blank(),
+        legend.text =  element_text(size=rel(0.7)),
+        legend.title = element_text(size=rel(0.7))) +
+  theme(axis.text.x = element_text(),
+        axis.ticks.x=element_line())
+
+paper_distr_final <- plot_grid(p.distr.a, p.distr.b, p.distr.c, p.distr.d, NULL,
+                           NULL,      NULL,      NULL,      p.distr.e, NULL,
+                           nrow=2,  align="h",
+                           rel_widths = c(1,1,1,1,0.1),
+                           labels=c("A","B","C","D","","","","","E",""))
+```
+
+```{r}
+pdf(paste0(image_save_path, "setal_distr_RTs_thesis.pdf"), width=pic_width*1.2, height=pic_height)
+paper_distr_final 
+dev.off()
+paper_distr_final
+```
+
+## Mean and variance correlations: Figure 2.
+
+```{r, fig.show='hide'}
+sj.top <- setal_excl %>% 
+  make_jaegerfig_14.top(n_panels=6, 
+                        bottom_text=jaeger_top_text, 
+                        seed=4,
+                        bin_by = "item",
+                        return_components = FALSE,
+                        ncols = 3, subjects=NA)
+
+sj.bot <- setal_excl %>% 
+  make_jaegerfig_14.bottom(bottom_text=jaeger_bottom_text, 
+                           has_legend=TRUE,
+                           return_components = FALSE)
+
+paper_jaeger_14 <- combine_jaegerfig_parts(sj.top, sj.bot, rel_heights = c(1, 0.08, 1))
+
+
+
+
+# paper_jaeger_14 <- make_jaegerfig_14(setal_excl, 3, 9)
+```
+
+```{r, fig.cap=paste(jaeger_cap_intro, "Panel A: Randomly drawn participants from Harrington Stack et al. (2018), Experiment 2.", jaeger_cap_a, jaeger_cap_b), fig.height=pic_height*2}
+pdf(paste0(image_save_path, "setal_jaeger_14.pdf"), width=pic_width, height=pic_height*2)
+paper_jaeger_14
+dev.off()
+paper_jaeger_14
+```
+
+# Study 1 
+
+```{r}
+study1_analysis_row <- list(
+  facet_grid(vars(Analysis), vars(SampleName), 
+             labeller = label_value),
+  scale_y_continuous(sec.axis = dup_axis(
+    name="Analysis approach", 
+    breaks=c(-Inf, Inf), labels=NULL)))
+
+study1_exp_row <- list(
+  facet_grid(vars(Experiment), vars(SampleName), 
+             labeller = label_value),
+  scale_y_continuous(sec.axis = dup_axis(
+    name="Experiment", 
+    breaks=c(-Inf, Inf), labels=NULL)))
+
+```
+
+## Convergence rates
+
+### HS18
+
+```{r}
+paper_reg_convergence <- summarized_reg_data %>%
+  filter(Nitems==Nsubj) %>%
+  base_plot_convergence(giant_grouping_vars) +
+  aes(color = EffectSizeName) +
+  study1_analysis_row +
+  effect_size_color_scale + 
+  theme(strip.text.y = element_text(size=rel(0.9)))
+paper_reg_convergence <- paper_reg_convergence %>% add_results_ornaments()
+```
+
+```{r, fig.cap="The convergence rate for both analyses and all HS18 simulations.\\label{fig:reg_giant_convergence1}"}
+pdf(paste0(image_save_path, "setal_convergence.pdf"), width=pic_width, height=pic_height*1.25)
+paper_reg_convergence
+dev.off()
+paper_reg_convergence
+```
+
+### Both F13 and NSC:
+
+```{r} 
+collapse_across_effect_sizes <- function(df, grouping_quos) {
+  df %>%
+    # Removes the doubled data
+    filter(!(EffectSizeName=="large" & Type=="type1")) %>%
+    group_by(!!!grouping_quos) %>%
+    summarise_at(vars(n:n_singfits), sum) %>%
+    ungroup() %>%
+    mutate(EffectSizeName="all")
+}
+
+all_exp_combo <- bind_rows(
+  "HS18" = summarized_reg_data,
+  "F13" = summarized_fetal_data, 
+  "NSC"   = filter(summarized_nsc_data, Nstories==4), 
+  .id="Experiment") %>%
+  mutate(Experiment = factor(Experiment, levels=c("HS18","F13","NSC"))) %>%
+  filter(Nsubj==Nitems, Nsubj < 100)
+  
+paper_combo_convergence <- all_exp_combo %>%
+  filter(Experiment %in% c("F13", "NSC"), 
+         EffectSizeName == "medium") %>%
+  filter(Type=="power") %>%
+  collapse_across_effect_sizes(quos(!!!giant_grouping_vars_without_effectsize,Type, Analysis, Experiment)) %>%
+  base_plot_convergence(quos(!!!giant_grouping_vars_without_effectsize, Experiment)) +
+  aes(color = Analysis) +
+  study1_exp_row  +
+  scale_color_manual("Analysis\napproach", 
+                     values = analysis_colors,
+                     labels = analysis_labels)
+paper_combo_convergence <- paper_combo_convergence %>% add_results_ornaments()
+```
+
+```{r}
+pdf(paste0(image_save_path, "fetal_nsc_convergence.pdf"), width=pic_width, height=pic_height)
+paper_combo_convergence
+dev.off()
+paper_combo_convergence
+```
+
+
+## Singular fits
+
+### HS18
+
+```{r} 
+paper_reg_singfit <- summarized_reg_data %>%
+  filter(Nitems==Nsubj) %>%
+  base_plot_singfit(giant_grouping_vars) +
+  aes(color = EffectSizeName) +
+  study1_analysis_row +
+  effect_size_color_scale + 
+  theme(strip.text.y = element_text(size=rel(0.9)))
+paper_reg_singfit <- paper_reg_singfit %>% add_results_ornaments()
+```
+
+```{r, fig.cap="The rate of singular fit for both analyses and all HS18 data set simulations.\\label{fig:paper_setal_sing_fit}"}
+pdf(paste0(image_save_path, "setal_singfit.pdf"), width=pic_width, height=pic_height*1.25)
+paper_reg_singfit
+dev.off()
+paper_reg_singfit
+```
+
+### F13 and NSC
+
+```{r}
+paper_combo_singfit <- all_exp_combo %>%
+  filter(Experiment %in% c("F13", "NSC"), EffectSizeName == "medium") %>%
+  filter(Type=="power") %>%
+  collapse_across_effect_sizes(quos(!!!giant_grouping_vars_without_effectsize,Type, Analysis, Experiment)) %>%
+  base_plot_singfit(quos(!!!giant_grouping_vars, Experiment)) +
+  aes(color = Analysis) +
+  study1_exp_row  +
+  scale_color_manual("Analysis\napproach", 
+                     values = analysis_colors,
+                     labels = analysis_labels)
+paper_combo_singfit<-paper_combo_singfit %>% add_results_ornaments()
+```
+
+```{r}
+pdf(paste0(image_save_path, "fetal_nsc_singfit.pdf"), width=pic_width, height=pic_height)
+paper_combo_singfit
+dev.off()
+paper_combo_singfit
+```
+
+
+## Type I errors
+
+### HS18
+ 
+```{r}
+paper_reg_type1 <- summarized_reg_data %>%
+  filter(Nitems==Nsubj) %>%
+  base_plot_type1(giant_grouping_vars) +
+  aes(shape=sigDiffFrom05) +
+  aes(color = Analysis) +
+  facet_grid(vars(NULL), vars(SampleName),
+             labeller = label_value) +
+  # ggtitle("Type I error rate") +
+  scale_y_continuous("Type I error rate") +
+  scale_color_manual("Analysis approach", values = analysis_colors,
+                     labels = analysis_labels) +
+  scale_shape_discrete("Differs\nfrom 0.05?")
+
+paper_reg_type1<-paper_reg_type1 %>% add_results_ornaments()
+```
+
+```{r}
+pdf(paste0(image_save_path, "setal_type1.pdf"), width=pic_width, height=pic_height)
+paper_reg_type1 
+dev.off()
+paper_reg_type1
+```
+
+
+### F13 and NSC
+
+```{r}
+paper_combo_type1 <- all_exp_combo %>%
+  filter(Experiment %in% c("F13", "NSC"), EffectSizeName == "medium") %>%
+  base_plot_type1(quos(!!!giant_grouping_vars, Experiment)) +
+  aes(shape=sigDiffFrom05) +
+  aes(color=Analysis) + 
+  facet_grid(vars(Experiment), vars(SampleName),
+             labeller = label_value) +
+  # ggtitle("Type I error rate") +
+  study1_exp_row +
+  scale_color_manual("Analysis approach", 
+                     values = analysis_colors,
+                     labels = analysis_labels) +
+  scale_shape_discrete("Differs\nfrom 0.05?")
+paper_combo_type1 <- paper_combo_type1 %>% add_results_ornaments()
+```
+
+```{r}
+pdf(paste0(image_save_path, "fetal_nsc_type1.pdf"), width=pic_width, height=pic_height)
+paper_combo_type1
+dev.off()
+paper_combo_type1 
+```
+
+
+### All data sets
+ 
+```{r}
+paper_big_combo_type1 <- all_exp_combo %>%
+   base_plot_type1(quos(!!!giant_grouping_vars, Experiment)) +
+  aes(shape=sigDiffFrom05) +
+  aes(color=Analysis) + 
+  facet_grid(vars(Experiment), vars(SampleName),
+             labeller = label_value) +
+  # ggtitle("Type I error rate") +
+  study1_exp_row +
+  scale_color_manual("Analysis approach", 
+                     values = analysis_colors,
+                     labels = analysis_labels) +
+  scale_shape_discrete("Differs\nfrom 0.05?")
+
+paper_big_combo_type1 <- paper_big_combo_type1 %>% add_results_ornaments()
+
+pdf(paste0(image_save_path, "fetal_nsc_type1.pdf"), width=pic_width, height=pic_height*1.5)
+paper_big_combo_type1
+dev.off()
+paper_big_combo_type1 
+```
+
+### Type I disadvantage
+
+```{r type1_disadvantage}
+
+paper_study1_type1_advantage <- all_exp_combo %>% 
+  base_plot_advantage(quos(!!!giant_grouping_vars, Experiment),
+                      is_corrected = FALSE,
+                      in_log_odds = TRUE,
+                      is_type1 = TRUE) +
+  facet_grid(vars(Experiment), vars(SampleName),
+             labeller = label_value) +
+  aes(group=1, color=EffectSizeName) +
+  effect_size_color_scale +
+  scale_y_continuous("Type I advantage of\nlog-transformed analysis (log-odds difference)",
+                     sec.axis = dup_axis(name="Experiment",
+                                         breaks=c(-Inf,Inf))) +
+  coord_cartesian(ylim = shared_power_type_yrange_exp1)
+
+paper_study1_type1_advantage <- paper_study1_type1_advantage %>% add_results_ornaments()
+
+pdf(paste0(image_save_path, "paper_study1_type1_advantage.pdf"), width=pic_width, height=pic_height*1.5)
+paper_study1_type1_advantage
+dev.off()
+paper_study1_type1_advantage
+
+```
+
+
+## Power (uncorrected)
+
+### HS18 
+
+```{r}
+# Defined above
+paper_reg_poweruncorrected <- paper_reg_poweruncorrected %>% add_results_ornaments()
+```
+
+```{r}
+pdf(paste0(image_save_path, "setal_power_uncorrected.pdf"), width=pic_width, height=pic_height)
+paper_reg_poweruncorrected
+dev.off()
+paper_reg_poweruncorrected
+```
+
+### F13 and NSC 
+ 
+```{r} 
+ paper_combo_poweruncorrected <- all_exp_combo %>%
+  filter(Experiment %in% c("F13", "NSC"), EffectSizeName == "medium") %>%
+  filter(Type=="power") %>%
+  base_plot_power(quos(!!!giant_grouping_vars, Experiment),
+                   is_corrected = FALSE) +
+  aes(color=Analysis, group=Analysis) +
+  facet_grid(vars(Experiment), vars(SampleName)) +
+  study1_exp_row +
+  scale_color_manual("Analysis approach", values = analysis_colors,
+                     labels = analysis_labels)
+
+paper_combo_poweruncorrected<-paper_combo_poweruncorrected %>% add_results_ornaments()
+```
+
+```{r}
+pdf(paste0(image_save_path, "fetal_nsc_power_uncorrected.pdf"), width=pic_width, height=pic_height)
+paper_combo_poweruncorrected
+dev.off()
+paper_combo_poweruncorrected
+```
+
+
+
+## Power (corrected)
+ 
+### HS18 
+
+```{r}
+# Defined above
+paper_reg_powercorrected <- paper_reg_powercorrected %>% add_results_ornaments()
+
+pdf(paste0(image_save_path, "setal_power_corrected.pdf"), width=pic_width, height=pic_height)
+paper_reg_powercorrected 
+dev.off()
+paper_reg_powercorrected
+```
+
+### F13 and NSC
+
+```{r}
+paper_combo_powercorrected <- all_exp_combo %>%
+  filter(Experiment %in% c("F13", "NSC"), EffectSizeName == "medium") %>%
+  filter(Type=="power") %>%
+  base_plot_power(quos(!!!giant_grouping_vars, Experiment),
+                   is_corrected = TRUE) +
+  aes(color=Analysis, group=Analysis) +
+  facet_grid(vars(Experiment), vars(SampleName)) +
+  study1_exp_row +
+  scale_color_manual("Analysis approach", 
+                     values = analysis_colors,
+                     labels = analysis_labels)
+  
+paper_combo_powercorrected<-paper_combo_powercorrected %>% add_results_ornaments()
+
+pdf(paste0(image_save_path, "fetal_nsc_power_corrected.pdf"), width=pic_width, height=pic_height)
+paper_combo_powercorrected
+dev.off()
+paper_combo_powercorrected
+```
+
+
+### Power advantage
+
+```{r}
+paper_study1_power_advantage <- all_exp_combo %>%
+  base_plot_advantage(quos(!!!giant_grouping_vars, Experiment),
+                      is_corrected = TRUE,
+                      in_log_odds = TRUE) +
+  facet_grid(vars(Experiment), vars(SampleName),
+             labeller = label_value) +
+  aes(color=EffectSizeName, group=EffectSizeName) +
+  aes(linetype=log_type, group=paste(log_type,EffectSizeName,Experiment,SampleName)) +
+  scale_y_continuous(corrected_log_odds_diff_text,
+                     sec.axis = dup_axis(name="Experiment",
+                                         breaks=c(-Inf,Inf))) +
+  coord_cartesian(ylim=shared_power_type_yrange_exp1) +
+  effect_size_color_scale +
+  scale_linetype_manual("Comparison",values=c("dashed","solid"),
+                        labels=c("log(RT-x) ~ ...", "log(RT) ~ ..."))
+
+paper_study1_power_advantage <- paper_study1_power_advantage %>% add_results_ornaments()
+
+pdf(paste0(image_save_path, "paper_study1_power_advantage.pdf"), width=pic_width, height=pic_height*1.5)
+paper_study1_power_advantage
+dev.off()
+paper_study1_power_advantage
+```
+
+
+# Study 2
+
+```{r}  
+study2_analysis_row <- list(
+  facet_grid(vars(), vars(Distribution), 
+             labeller = label_value),
+  aes(color = Analysis),
+  scale_color_manual("Analysis approach", 
+                     values = analysis_colors,
+                     labels = analysis_labels)
+  )
+```
+
+## Figure 2 for log-RTs
+
+```{r, fig.show='hide'} 
+fj.top <- setal_excl %>% 
+  mutate(RT = log10(RT)) %>%
+  make_jaegerfig_14.top(n_panels=6, 
+                        bottom_text="Mean log-RTs (by trial)", 
+                        seed=4,
+                        bin_by = "item",
+                        return_components = FALSE,
+                        ncols = 3, subjects=NA)
+
+fj.bot <- setal_excl %>% 
+  mutate(RT = log10(RT)) %>%
+  make_jaegerfig_14.bottom(bottom_text="Mean log-RTs (by trial)", 
+                           has_legend=TRUE,
+                           return_components = FALSE)
+
+logsetal_jaeger_14 <- combine_jaegerfig_parts(fj.top, fj.bot, rel_heights = c(1, 0.08, 1))
+```
+
+```{r, fig.cap=gsub("RT", "log-RT", paste(jaeger_cap_intro, "Panel A: Randomly drawn participants from the HS18 data.", jaeger_cap_a, jaeger_cap_b, "\\label{fig:jaeger14_logged}")), fig.height=pic_height*2}
+pdf(paste0(image_save_path, "log_setal_jaeger_14.PDF"), width=pic_width, height=pic_height*2)
+logsetal_jaeger_14
+dev.off()
+logsetal_jaeger_14
+```
+
+## Distributional shapes
+
+```{r}
+paper_distro_stats <- statsmo %>%
+  mutate(Subjects=as.factor(Nsubj)) %>%
+  # filter(Nsubj==16) %>%
+  ggplot(aes(x=mu, y=stdev, 
+             color = Distribution,
+             fill  = Distribution
+             )) +
+  geom_point(alpha=0.06,
+             data=sample_n(statsmo, 50000) %>%
+  mutate(Subjects=as.factor(Nsubj))) +
+  stat_ellipse(geom="polygon", alpha=0.3,
+               fill=NA) + 
+  facet_wrap(~Subjects, ncol=2, labeller = label_both) +
+  scale_x_continuous("Sample mean RT (ms)", breaks = c(200, 300, 400)) +
+  scale_y_continuous("Sample SD") +
+  zplyr::share_scales(scale_color_manual, scale_fill_manual,
+                      name = "",                  
+                      values = sampling_colors, 
+                      labels = sampling_labels_parens_newline) +
+  theme(legend.key.height  = unit(0.4, "inches"),
+        legend.position = "right")
+
+png(paste0(image_save_path, "stat_distro_basic.png"), units="in",
+    res = 96, width=pic_width, height=pic_height)
+paper_distro_stats
+dev.off()
+paper_distro_stats
+
+```
+
+## Convergence failures
+
+```{r}
+paper_paranorm_convergence <- summarized_para_data %>%
+  temp_paper_plot_filterer %>%
+  base_plot_convergence(para_grouping_vars, show_type1=FALSE) +
+  study2_analysis_row
+  
+paper_paranorm_convergence <- paper_paranorm_convergence %>% add_distro_top()
+```
+
+```{r, fig.cap="The convergence rate for both analyses on the parametrically generated data.\\label{fig:paranorm_convergence1}"}
+pdf(paste0(image_save_path, "paranorm_convergence.pdf"), width=pic_width, height=pic_height)
+paper_paranorm_convergence
+dev.off()
+```
+
+## Singular fits
+
+```{r}
+paper_paranorm_singfit <- summarized_para_data %>%
+  temp_paper_plot_filterer %>%
+  base_plot_singfit(para_grouping_vars) +
+  study2_analysis_row 
+paper_paranorm_singfit <- paper_paranorm_singfit %>% add_distro_top()
+```
+
+```{r, fig.cap="The rate of singular fit for both analysis approaches on the parametrically generated data from normal distributions.\\label{fig:paper_paranorm_sing_fit}"}
+pdf(paste0(image_save_path, "paranorm_singfit.pdf"), width=pic_width, height=pic_height)
+paper_paranorm_singfit
+dev.off()
+paper_paranorm_singfit
+```
+
+## Type I errors
+
+```{r}
+paper_paranorm_type1 <- summarized_para_data %>%
+  base_plot_type1(para_grouping_vars) +
+  study2_analysis_row + 
+  aes(shape=sigDiffFrom05) +
+  scale_shape_discrete("Differs\nfrom 0.05?", drop=FALSE)
+paper_paranorm_type1 <- paper_paranorm_type1 %>% add_distro_top()
+```
+
+```{r} 
+pdf(paste0(image_save_path, "paranorm_type1.pdf"), width=pic_width, height=pic_height)
+paper_paranorm_type1
+dev.off()
+paper_paranorm_type1
+```
+
+
+## Power (uncorrected)
+
+```{r}
+paper_paranorm_poweruncorrected <- summarized_para_data %>%
+  base_plot_power(para_grouping_vars,
+                  is_corrected = FALSE) +
+  aes(color=Analysis, group=Analysis) +
+  facet_grid(vars(EffectSizeName), vars(Distribution), 
+             labeller = label_value) +
+  scale_y_continuous(sec.axis = dup_axis(
+    name="Effect size", 
+    breaks=c(-Inf, Inf), labels=NULL)) +
+  scale_color_manual("Analysis\napproach", 
+                     values = analysis_colors,
+                     labels = analysis_labels)
+
+paper_paranorm_poweruncorrected <- paper_paranorm_poweruncorrected %>% add_distro_top()
+```
+
+```{r, fig.width=fig_width}
+pdf(paste0(image_save_path, "paranorm_power_uncorrected.pdf"), width=pic_width, height=pic_height)
+paper_paranorm_poweruncorrected 
+dev.off()
+paper_paranorm_poweruncorrected
+```
+
+## Power (corrected)
+
+```{r} 
+paper_paranorm_powercorrected <- summarized_para_data %>%
+  base_plot_power(para_grouping_vars,
+                  is_corrected = TRUE) +
+  aes(color=Analysis, group=Analysis) +
+  facet_grid(vars(EffectSizeName), vars(Distribution), 
+             labeller = label_value) +
+  scale_y_continuous(sec.axis = dup_axis(
+    name="Effect size", 
+    breaks=c(-Inf, Inf), labels=NULL)) +
+  # study1_exp_row +
+  scale_color_manual("Analysis\napproach", 
+                     values = analysis_colors,
+                     labels = analysis_labels) +
+  theme(legend.position = "right")
+paper_paranorm_powercorrected <- paper_paranorm_powercorrected  %>% add_distro_top()
+```
+
+```{r, fig.width=fig_width}
+pdf(paste0(image_save_path, "paranorm_power_corrected.pdf"), width=pic_width, height=pic_height)
+paper_paranorm_powercorrected 
+dev.off()
+paper_paranorm_powercorrected 
+```
+
+```{r}
+
+# paper_paranorm_powercorrected_half <- summarized_para_data %>%
+#   base_plot_power(para_grouping_vars,
+#                   is_corrected = TRUE) +
+#   aes(color = Analysis, group = Analysis) +
+#   facet_grid(vars(EffectSizeName), vars(Distribution), 
+#              labeller = labeller(EffectSizeName = function(x) c("", ""))) +
+#   scale_color_manual("Analysis\napproach", 
+#                      values = analysis_colors,
+#                      labels = analysis_labels) +
+#   theme(legend.position = "top")
+# 
+# paper_paranorm_powercorrected_half_legend <- paper_paranorm_powercorrected_half %>% cowplot::get_legend()
+# 
+# paper_paranorm_power_advantage_half <- summarized_para_data %>%
+#   base_plot_advantage(para_grouping_vars,
+#                       is_corrected = TRUE,
+#                       in_log_odds = TRUE) +
+#   facet_grid(vars(EffectSizeName), vars(Distribution),
+#              labeller = label_value) +
+#   aes(group=1) +
+#   scale_y_continuous(corrected_log_odds_diff_text,
+#                      sec.axis = dup_axis(name="Effect size",
+#                                     breaks=c(-Inf,Inf))) +
+#   geom_hline(yintercept = 0, linetype="dashed") +
+#   scale_color_discrete("Effect size") 
+# 
+# paper_paranorm_power_both <- cowplot::plot_grid(nrow = 2,
+#                    paper_paranorm_powercorrected_half_legend,
+#                    NA,
+#                    paper_paranorm_powercorrected_half + theme(legend.position = "none"), 
+#                    paper_paranorm_power_advantage_half,
+#                    rel_heights = c(0.2,1))
+# 
+# pdf(paste0(image_save_path, "paper_paranorm_power_both.pdf"), width=pic_width, height=pic_height)
+# paper_paranorm_power_both
+# dev.off()
+# paper_paranorm_power_both
+
+```
+
+## Power comparison
+
+```{r}
+
+temp_all_distros <- all_exp_combo %>%
+  filter(Experiment=="HS18", 
+         SampleName=="post-exclusion") %>%
+  mutate(Distribution = "Natural") %>% 
+  bind_rows(summarized_para_data) %>%
+  filter(Analysis!="lgshift")
+
+comparing_twixt_distros <- temp_all_distros %>%
+    prepare_summed_power_data(para_grouping_vars, 
+                              is_corrected = TRUE,
+                              is_type1 = FALSE) %>%
+    mutate(Nsubj=as.factor(Nsubj)) %>%
+    group_by(!!!para_grouping_vars, Analysis) %>%
+    filter(!any(PointEst %in% c(1,0))) %>%
+    ungroup() %>%
+    select(!!!para_grouping_vars, Analysis, PointEst, Lower, Upper) %>%
+    mutate(Odds = (PointEst)/(1-PointEst)) %>%
+    select(-PointEst, -Lower, -Upper) %>%
+  select(Analysis, Distribution, Nsubj, EffectSize, everything(), -SampleName) %>%
+  tidyr::spread(Distribution, Odds) %>%
+  mutate(`Parametric normal` = log(`Parametric normal`) - log(Natural),
+         `Parametric log-normal`  = log(`Parametric log-normal`) - log(Natural)) %>%
+  select(-Natural) %>%
+  tidyr::gather("Distribution", "log_odds", `Parametric normal`,`Parametric log-normal`)
+
+paper_paranorm_advantage_twixt_distros <- comparing_twixt_distros %>%
+  ggplot(aes(x = Nsubj, y = log_odds, color=Distribution)) +
+  geom_line(aes(group = paste(Distribution, EffectSizeName))) +
+  xlab(subject_text) +
+  geom_hline(yintercept=0, linetype="dashed") +
+  facet_grid(EffectSizeName ~ Analysis,
+             labeller = labeller(EffectSizeName = function(x) x,
+                                 Analysis = label_both)) +
+  scale_y_continuous("Power overestimation (log-odds)\nwhen data is generated parametrically") +
+  scale_color_manual(name = "RTs: ",                  
+                     values = sampling_colors, 
+                     guide= FALSE)
+
+paper_paranorm_powercorrected_half <- temp_all_distros %>%
+  base_plot_power(para_grouping_vars, is_corrected=TRUE) +
+  aes(color = Distribution, group = Distribution) +
+  facet_grid(vars(EffectSizeName), vars(Analysis),
+             labeller = labeller(EffectSizeName = function(x) x,
+                                 Analysis = label_both)) +
+  labs(y = corrected_power_text, x = subject_text) +
+  zplyr::share_scales(scale_color_manual, scale_fill_manual,
+                      name = "RTs: ",                  
+                      values = sampling_colors, 
+                      labels = sampling_labels_parens)
+
+paper_paranorm_power_advantage_half <- temp_all_distros %>%
+  base_plot_advantage(para_grouping_vars,
+                      is_corrected = TRUE,
+                      in_log_odds = TRUE) +
+  facet_grid(vars(EffectSizeName), vars(" "),
+             labeller = label_value) +
+  aes(group=Distribution,color=Distribution) +
+  scale_color_discrete(guide=FALSE) +
+  zplyr::share_scales(scale_color_manual, scale_fill_manual,
+                      name = "RTs: ",
+                      values = sampling_colors,
+                      labels = sampling_labels_parens) +
+  scale_y_continuous("Corrected power advantage of\nlog-transformed analysis (log-odds)",
+                     sec.axis = dup_axis(name="Effect size",
+                                    breaks=c(-Inf,Inf))) 
+
+paper_paranorm_powercorrected_half_legend <- cowplot::get_legend(
+  paper_paranorm_powercorrected_half + 
+    theme(legend.position = "top")
+)
+
+paper_paranorm_powercorrected_half_legend2 <- cowplot::get_legend(
+  paper_paranorm_powercorrected_half  +
+    theme(legend.title = element_text(size=rel(1.2)),
+          legend.text  = element_text(size=rel(1.2)),
+          legend.position = "right")
+)
+
+
+paper_paranorm_power_both <- cowplot::plot_grid(
+  nrow = 1,
+  paper_paranorm_powercorrected_half + theme(legend.position = "none"), 
+  paper_paranorm_power_advantage_half + theme(legend.position = "none"),
+  rel_widths = c(1.5,1)
+  )
+
+paper_paranorm_power_all_three <- cowplot::plot_grid(
+  nrow = 2,
+  paper_paranorm_powercorrected_half + theme(legend.position = "none"), 
+  paper_paranorm_power_advantage_half + theme(legend.position = "none"),
+  paper_paranorm_advantage_twixt_distros,
+  paper_paranorm_powercorrected_half_legend2,
+  rel_widths = c(1.5,1),
+  labels = c("A", "B", "C", "")
+)
+# # Previous iteration:
+# grid.arrange(
+#   arrangeGrob(paper_paranorm_power_both,
+#               top = paper_paranorm_powercorrected_half_legend)
+# )
+pdf(paste0(image_save_path, "paper_paranorm_power_both.pdf"),
+    width=pic_width, height=pic_height*2)
+paper_paranorm_power_all_three
+dev.off()
+paper_paranorm_power_all_three
+# grid.newpage()
+```
+
+```{r} 
+
+# 
+# pdistros <- summarized_reg_data %>%
+#   filter(SampleName == "post-exclusion",
+#          Nsubj <= 64) %>%
+#   mutate(Distribution="Natural") %>%
+#   bind_rows(summarized_para_data) %>%
+#   filter(Space=="") %>%
+#   filter(EffectSize != "80") %>%
+#   fancy_plots(Distribution=="Parametric log-normal",
+#               EffectSize==56, #Space=="RawRTs",
+#               grouping_quosures = para_grouping_vars,
+#               col_col = EffectSize, col_name=NA,
+#               color_col = Distribution, color_name="Data",
+#               # row_col=Space, row_name="Space",
+#               is_corrected = TRUE,
+#               return_components = TRUE)
+# 
+# paper_power_advantage_distros <- plot_grid(
+#   rel_widths = c(1, 1.5),
+#   pdistros$main_facet,
+#     # coord_cartesian(ylim=shared_range) +
+#     # theme(plot.margin = margin(b=5.5, l=5.5, r=5.5, t=5.5)),
+#   pdistros$satellites +
+#     theme(strip.text = element_blank(),
+#           legend.key.height = unit(25, "pt")) +
+#     scale_color_manual("Data",
+#                        values=sampling_colors,
+#                        labels=sampling_labels_parens_newline))
+# 
+# 
+# pdf(paste0(image_save_path, "distro_correctedpower_advantage.pdf"),
+#     width = pic_width, height = pic_height)
+# paper_power_advantage_distros
+# dev.off()
+# 
+# paper_power_advantage_distros
+
+```
+
+
+
+
+# Study 3
+
+```{r}
+study4_analysis_row <- list(
+  facet_grid(vars(Space), vars(`mean RT`), 
+             labeller = label_value),
+  aes(color = Analysis),
+  scale_color_manual("Analysis approach", 
+                     values = analysis_colors,
+                     labels = analysis_labels),
+  scale_y_continuous(sec.axis = dup_axis(name=space_text,
+                                         breaks=NULL))
+  )
+``` 
+
+## Figure 1 for the three mean RTs of HS18
+
+```{r, fig.cap="Marginal density of word-by-word reading times using the post-exclusion HS18 data at three different mean RTs. Skewness is calculated as E[((X-$\\mu$)/$\\sigma$)^3 ] and the kurtosis is the excess kurtosis calculated via Pearson's measure of kurtosis, E[((X-$\\mu$)/$\\sigma$)^4 ]. All distributions are significantly skewed based on D’Agostino test (D’Agostino, 1970)."}
+
+pdf(paste0(image_save_path, "binned_figure_1.pdf"), width=pic_width, height=pic_height/2)
+p.distr.bins.plot_grid
+dev.off()
+p.distr.bins.plot_grid
+```
+
+## Lower bounds plots
+
+```{r making nsc gamm plot, cache=TRUE} 
+nsc_gamm_data <- nsc_excl %>%
+  group_by(Subject) %>%
+  mutate(maxTrials = max(Trial.Order),
+         minTrials = min(Trial.Order)) %>%
+  filter(n_distinct(Trial.Order) > 50) %>%
+  filter(maxTrials > 100 & minTrials < 15) %>%
+  ungroup() %>% 
+  filter(Trial.Order <= min(maxTrials))
+
+nsc_gamm <- bam(RT ~ 1 + 
+                  s(Word.Order) + 
+                  s(Trial.Order) +
+                  s(Subject, bs="re") + s(Item, bs="re"),
+                data = nsc_gamm_data,
+                nthreads = 3)
+# print(plot(mgcViz::getViz(nsc_gamm), allTerms = T), pages = 1)
+
+preds <- predict(nsc_gamm, type="terms") %>% 
+{
+  mutate(as.data.frame(.),
+         Intercept=attr(., "constant")[[1]])
+} %>% 
+  as_tibble() %>%
+  mutate(FullPred = rowSums(.),
+         NoRandPred = `s(Word.Order)`+`s(Trial.Order)`+Intercept,
+         NoItemPred = `s(Word.Order)`+`s(Trial.Order)`+`s(Subject)`+Intercept)
+
+nsc_gamm_data <- nsc_gamm_data %>%
+  bind_cols(preds) %>%
+  mutate(ItemResids = RT - `s(Item)`,
+         RandResids = RT - `s(Item)` - `s(Subject)`)
+
+set.seed(1)
+paper_nsc_gam_plot <- nsc_gamm_data %>%
+  filter(Subject %in% sample(Subject,size=30)) %>%
+  group_by(Subject, Trial.Order) %>%
+  summarise(RT = mean(RandResids)) %>%
+  ggplot(aes(x=Trial.Order, y=RT, group=Subject)) +
+  # stat_smooth(geom="line", se=FALSE, alpha=0.2, linetype="dashed") +
+  stat_smooth(geom="line", se=FALSE, #color="red",
+              size=1,
+              data = nsc_gamm_data %>%
+                filter(Subject==first(Subject)) %>%
+                group_by(Subject, Trial.Order) %>%
+                summarise(RT = mean(NoRandPred))) #+
+  # coord_cartesian(ylim=c(300,450))
+
+rm(nsc_gamm_data, preds, nsc_gamm)
+
+```
+
+```{r}
+paper_nsc_gam_plot <- paper_nsc_gam_plot +
+  stat_smooth(geom="line", se=FALSE, alpha=0.2, linetype="dashed") +
+  coord_cartesian(ylim=c(300,550)) +
+  labs(x="Trial order", y="Participant- and\nitem-corrected RTs (ms)")
+  
+pdf(paste0(image_save_path, "lower_bounds.pdf"), width=pic_width, height=pic_height)
+paper_nsc_gam_plot
+dev.off()
+paper_nsc_gam_plot
+
+```
+
+## Convergence failures
+
+```{r} 
+paper_binned_convergence <- summarized_binned_data %>%
+  temp_paper_plot_filterer %>%
+  base_plot_convergence(binned_grouping_vars) +
+  study4_analysis_row
+paper_binned_convergence <- paper_binned_convergence %>% add_mean_rt_top()
+```
+
+```{r}
+pdf(paste0(image_save_path, "binned_convergence.pdf"), width=pic_width, height=pic_height)
+paper_binned_convergence
+dev.off()
+paper_binned_convergence
+```
+
+## Singular fits
+
+```{r}
+paper_binned_singfit <- summarized_binned_data %>%
+  temp_paper_plot_filterer %>%
+  base_plot_singfit(binned_grouping_vars) +
+  study4_analysis_row
+paper_binned_singfit <- paper_binned_singfit  %>% add_mean_rt_top()
+```
+
+```{r}
+pdf(paste0(image_save_path, "binned_singfit.pdf"), width=pic_width, height=pic_height)
+paper_binned_singfit
+dev.off()
+paper_binned_singfit
+```
+
+## Type I errors
+
+```{r}
+paper_binned_type1 <- summarized_binned_data %>%
+  filter(Space=="Raw RTs") %>%
+  base_plot_type1(binned_grouping_vars) +
+  aes(shape = sigDiffFrom05) +
+  study4_analysis_row +
+  facet_grid(vars(NULL), vars(`mean RT`), 
+             labeller = label_value) +
+  scale_y_continuous() +
+  scale_shape_discrete("Differs\nfrom 0.05?")
+paper_binned_type1 <- paper_binned_type1 %>% add_mean_rt_top()
+```
+
+```{r}
+pdf(paste0(image_save_path, "binned_type1.pdf"), width=pic_width, height=pic_height)
+paper_binned_type1 
+dev.off()
+paper_binned_type1
+```
+
+## Power (uncorrected)
+
+```{r}
+paper_binned_poweruncorrected <- summarized_binned_data %>%
+  base_plot_power(binned_grouping_vars,
+                  is_corrected = FALSE) +
+  binned_power_mods
+  # power_mods +
+  # paper_study4_power_mods
+  # aes(color=Analysis, group=Analysis) +
+  # facet_grid(vars(EffectSizeName), vars(`mean RT`), 
+  #            labeller = label_value) +
+  # scale_y_continuous(sec.axis = dup_axis(
+  #   name="Effect size", 
+  #   breaks=c(-Inf, Inf), labels=NULL)) +
+  # scale_color_manual("Analysis\napproach", 
+  #                    values = analysis_colors,
+  #                    labels = analysis_labels)
+paper_binned_poweruncorrected <- paper_binned_poweruncorrected %>% add_mean_rt_top()
+```
+
+```{r, fig.width=fig_width}
+pdf(paste0(image_save_path, "binned_power_uncorrected.pdf"), width=pic_width, height=pic_height)
+paper_binned_poweruncorrected
+dev.off()
+paper_binned_poweruncorrected
+```
+
+## Power (corrected)
+
+```{r}
+paper_binned_powercorrected <- summarized_binned_data %>%
+  base_plot_power(binned_grouping_vars,
+                  is_corrected = TRUE) +
+  binned_power_mods
+  # aes(color=Analysis, group=Analysis) +
+  # facet_grid(vars(EffectSizeName), vars(`mean RT`), 
+  #            labeller = label_value) +
+  # scale_y_continuous(sec.axis = dup_axis(
+  #   name="Effect size", 
+  #   breaks=c(-Inf, Inf), labels=NULL)) +
+  # # study1_exp_row +
+  # scale_color_manual("Analysis\napproach", values = analysis_colors,
+  #                    labels = analysis_labels)
+paper_binned_powercorrected <- paper_binned_powercorrected %>% add_mean_rt_top()
+```
+
+```{r, fig.width=fig_width}
+pdf(paste0(image_save_path, "binned_power_corrected.pdf"), width=pic_width, height=pic_height)
+paper_binned_powercorrected
+dev.off()
+paper_binned_powercorrected
+```
+
+## Power advantage
+
+```{r}
+paper_binned_power_advantage <- summarized_binned_data %>%
+  base_plot_advantage(binned_grouping_vars,
+                      is_corrected = TRUE,
+                      in_log_odds = TRUE) +
+  facet_grid(vars(Space), vars(EffectSizeName),
+             labeller = label_value) +
+  aes(color=`mean RT`, group=`mean RT`) +
+  scale_y_continuous(corrected_log_odds_diff_text,
+                     sec.axis = dup_axis(
+                       name=space_text,
+                       breaks=NULL)) +
+  mean_RT_color_scale
+
+paper_binned_power_advantage <- paper_binned_power_advantage %>% add_top_facet_title("Effect size")
+pdf(paste0(image_save_path, "paper_binned_power_advantage.pdf"), width=pic_width, height=pic_height)
+paper_binned_power_advantage
+dev.off()
+paper_binned_power_advantage
+```
+
+
+### Fancy plot
+
+```{r}
+paper_binned_fancy_plot <- summarized_binned_data %>%
+  fancy_plots(`mean RT`=="high", EffectSize==80, Space=="Raw RTs", 
+              grouping_quosures = binned_grouping_vars, 
+              col_col = EffectSizeName, col_name="Effect sizes",
+              color_col = `mean RT`, color_name="Mean RT",
+              row_col=Space, row_name=space_text,
+              is_corrected = TRUE)
+
+pdf(paste0(image_save_path, "paper_binned_fancy_plot.pdf"), width=pic_width, height=pic_height)
+paper_binned_fancy_plot
+dev.off()
+paper_binned_fancy_plot
+```
+
+
+
+# Study 4
+
+
+## Scale-dependence
+
+```{r}
+base_df <- data.frame(
+  sim = c(1,0),
+  nat = c(1, 0)
+) %>%
+  tidyr::expand(sim, nat) %>%
+  mutate(base_RT = ifelse(nat,500,100),
+         MainEffect = ifelse(sim,1,-1),
+         NatEffect  = ifelse(nat,"high mean","low mean")) %>%
+  mutate(ScaledRT = ifelse(sim, exp(log(base_RT)+1), base_RT)) %>%
+  group_by(nat) %>%
+  mutate(NotScaledRT = case_when(nat==0 ~ ScaledRT,
+                                 sim==1 ~ ScaledRT[sim==0],
+                                 TRUE ~ ScaledRT[sim==1])) %>%
+  ungroup()
+cross_over_df <- data.frame(
+  RT = c(100, 500, 500, 100),
+  NatEffect = c("low mean","high mean","low mean","high mean"),
+  MainEffect = c(-1,-1,1,1)
+)
+
+paper_int_scale_example <- bind_rows(
+  # I use additional spaces at the ends to differentiate them...
+  
+  # # scale-dependent
+  "log(RTs) " = base_df %>%
+    mutate(RT = log(ScaledRT)),
+  "RTs " = base_df %>%
+    mutate(RT = ScaledRT),
+
+  # unproblematic
+  "log(RTs)" = base_df %>%
+    mutate(RT = log(NotScaledRT)),
+  "RTs" = base_df %>%
+    mutate(RT = NotScaledRT),
+  
+  # crossover
+  "RTs  " = base_df %>%
+    mutate(NatEffect = c("low mean","high mean","high mean","low mean")) %>%
+    mutate(RT = ScaledRT),
+  "log(RTs)  " = base_df %>%
+    mutate(NatEffect = c("low mean","high mean","high mean","low mean")) %>%
+    mutate(RT = log(ScaledRT)),
+  
+  # "RTs  " = cross_over_df,
+  # "log(RTs)  " = cross_over_df %>%
+  #   mutate(RT = log(RT)),
+  
+  .id="plotting"
+) %>%
+  mutate(plotting = factor(
+    plotting,
+    levels=c("RTs ", "log(RTs) ", "RTs",  "log(RTs)", "RTs  ", "log(RTs)  "))) %>%
+  ggplot(aes(x=factor(MainEffect),
+             y=RT,
+             color=NatEffect,group=NatEffect)) + 
+  geom_line() +
+  labs(x="Main effect", color="Natural effect",
+       y="RTs / log(RTs)") +
+  facet_wrap(~plotting, scales="free", labeller = label_both,
+             nrow=1) +
+  theme(axis.text.y = element_blank(),
+        axis.ticks.y = element_blank(),
+        panel.grid = element_blank()) +
+  scale_color_discrete(guide=FALSE) +
+  theme(strip.text.x = element_text(size=rel(0.9)))
+
+paper_int_scale_example <- paper_int_scale_example %>%
+  spec_fig_ornaments_1x6()
+```
+
+```{r}
+pdf(paste0(image_save_path, "paper_int_scale_example.pdf"), width=pic_width, height=pic_height)
+paper_int_scale_example
+dev.off()
+paper_int_scale_example
+```
+
+
+
+## Idealized plot 
+
+
+```{r}
+log_space_effect_size_calculator <- function(meanRT, effect_size) {
+  log10(meanRT + effect_size) - log10(meanRT)
+}
+spec_fig_ornaments_2x4 <- function(p, top_margin=20) {
+  font_size=11
+  plot_grob <- ggplotGrob(
+    p + theme(plot.margin = margin(t=top_margin, 5.5, 5.5, 5.5))
+  )
+  plot_grob %>%
+    gtable::gtable_add_grob(segmentsGrob(0, 0.99, 0.99, 0.99),
+                            t = 2, b = 8, l = 5, r = 9, clip="on")  %>%
+    gtable::gtable_add_grob(textGrob("+smaller main effect", 0.5, 0.75,
+                                     gp = gpar(col = "black", fontsize = font_size)),
+                            t = 1, b = 7, l = 5, r = 9, clip="on") %>%
+    gtable::gtable_add_grob(segmentsGrob(0, 0.99, 0.99, 0.99),
+                            t = 3, b = 8, l = 11, r = 11, clip="on")  %>%
+    gtable::gtable_add_grob(textGrob("-smaller main effect", 0.5, 0.75,
+                                     gp = gpar(col = "black", fontsize = font_size)),
+                            t = 1, b = 7, l =11, r = 11, clip="on")  %>%
+                            {
+                              cowplot::ggdraw() + cowplot::draw_grob(grid::grobTree(.))
+                            }
+}
+
+df <- data.frame(
+  x=seq(-10,10,length.out = 50),
+  y=rnorm(50)+350
+) %>%
+  mutate(large_effect = rbinom(x,1,0.5)-0.5,
+         small_effect = rbinom(x,1,0.5)-0.5,
+         interaction  = large_effect*small_effect*2,
+         interaction2 =  large_effect*small_effect*2) %>%
+  mutate(large_change = -large_effect*100,
+         small_change = small_effect*56,
+         int_change   = interaction*28) %>%
+  mutate(y = y-min(y+int_change+large_change+small_change)) %>%
+  mutate(meany = mean(y+int_change+large_change+small_change),
+         small_ch_log = log_space_effect_size_calculator(meany,56)*small_effect,
+         large_ch_log = -log_space_effect_size_calculator(meany, 100)*large_effect,
+         int_ch_log = log_space_effect_size_calculator(meany,28)*interaction) %>%
+  group_by(large_effect, small_effect, meany) %>%
+  summarise(all_pos = mean(y+int_change+large_change+small_change),
+            no_small_pos = mean(y+int_change+large_change),
+            all_neg = mean(y-int_change+large_change+small_change),
+            
+            log_all_pos = 10^(mean(log10(y)+int_ch_log+large_ch_log+small_ch_log)),
+            log_no_small_pos = 10^(mean(log10(y)+int_ch_log+large_ch_log)),
+            log_all_neg = 10^(mean(log10(y)-int_ch_log+large_ch_log+small_ch_log)),
+            
+            
+            
+            no_small_neg = mean(y+small_change+large_change),
+            log_no_small_neg = 10^(mean(log10(y)+small_ch_log+large_ch_log))
+            # 
+            # no_int_neg = mean(y+small_change+large_change),
+            # log_no_int_neg = 10^(mean(log10(y)+small_ch_log+large_ch_log))
+            ) %>%
+  pivot_longer(all_pos:log_no_small_neg) %>%
+  mutate(small = ifelse(grepl("no",name),"not present","present"),
+         intdir = ifelse(grepl("pos",name),"sub-additive","super-additive"),
+         log_effects = ifelse(grepl("log",name),"log(RTs)","Raw RTs") %>%
+           factor(levels=c("Raw RTs","log(RTs)"))) %>%
+  mutate(leffect=ifelse(large_effect<0,"high","low ")) %>%
+  {
+    bind_rows(
+      "RT ~ ..." = .,
+      "log(RT) ~ ..." = mutate(., value=log10(value)),
+      .id="Analysis"
+    ) %>%
+      mutate(Analysis = factor(Analysis, levels=c("RT ~ ...",
+                                                  "log(RT) ~ ...")))
+  } %>%
+  # mutate(value = ifelse(Analysis=="RT ~ ...",value-3,value)) %>%
+  mutate(intdir = case_when(
+    name %in% c("log_no_small_neg", "no_small_neg") ~ "no interaction", 
+    name %in% c("log_no_small_pos", "no_small_pos") ~ "cross-over int.",
+    TRUE ~ paste(intdir,"int."))  %>%
+      factor(levels=c("no interaction", "sub-additive int.","super-additive int.","cross-over int."))
+  ) %>%
+  mutate(logeff2 = paste0(log_effects, ifelse(grepl("log", Analysis)," ","")) %>%
+           factor(levels=c("Raw RTs", "Raw RTs ", "log(RTs)","log(RTs) "))) %>%
+  group_by(logeff2) %>%
+  mutate(value=scale(value) %>% set_attrs(NULL))
+
+sa <- as_labeller(function(labels) { map_chr(labels, ~"Int. Direction:")})
+blank <- as_labeller(function(labels) { map_chr(labels, ~"")},
+                     multi_line = FALSE)
+
+p.idealized_ints <- df %>%
+  ggplot(aes(x=leffect,y=value,
+             color=Analysis,
+             shape=Analysis, #linetype=Analysis,
+             # color=as.factor(small_effect),
+             group=paste(small_effect,intdir,Analysis))) +
+  geom_point() +
+  geom_line() +
+  labs(x="larger main effect") +
+  facet_grid(logeff2~intdir,
+             labeller = labeller(.rows=label_value,
+                                 intdir=label_value,
+                                 small = sa)) +
+  scale_y_continuous("Illustrative RTs and log-RTs",
+                     sec.axis = dup_axis(
+                       name=space_text,
+                       breaks=NULL)) +
+  theme(#strip.text.x = element_blank(),
+        axis.text.y = element_blank(),
+        axis.ticks.y = element_blank(),
+        panel.grid = element_blank()) +
+  scale_shape("Analysis\napproach") +
+  # scale_linetype("Analysis\napproach") +
+  scale_color_manual("Analysis\napproach", 
+                     values = analysis_colors) #+
+  scale_color_discrete("Interaction\nDirection")
+
+
+
+
+p.idealized_ints <- p.idealized_ints %>% spec_fig_ornaments_2x4()
+
+```
+
+```{r}
+pdf(paste0(image_save_path, "paper_int_idealized.pdf"), width=pic_width, height=pic_height*1.4)
+p.idealized_ints
+dev.off()
+p.idealized_ints
+```
+
+
+## Convergence failures
+
+```{r}
+paper_int_convergence <- summarized_int_data %>%
+  filter(!(Analysis=="linear" & Direction==intgoodtext1 & Nsubj==8)) %>%
+  temp_paper_plot_filterer() %>%
+  preprep_int_plots_no_power() %>%
+  mutate(y=og_n-n, n=og_n) %>%
+  {cbind(., as_tibble(Hmisc::binconf(.$y, .$n)))}  %>%
+  ggplot(aes(x = Nsubj, y = PointEst)) +
+  geom_pointrange(aes(ymax=Upper, ymin=Lower), 
+                  position = position_dodge(def_dodge_width)) +
+  ylab(convergence_y_text_si) +
+  xlab(subject_text) +
+  int_analysis_row
+paper_int_convergence <- paper_int_convergence %>% add_direction_top()
+```
+
+```{r}
+pdf(paste0(image_save_path, "paper_int_convergence.pdf"), width=pic_width, height=pic_height)
+paper_int_convergence
+dev.off()
+paper_int_convergence
+```
+
+## Singular fits
+
+```{r}
+paper_int_singfit <- summarized_int_data %>%
+  temp_paper_plot_filterer() %>%
+  preprep_int_plots_no_power() %>%
+  mutate(y=n_singfits) %>%
+  {cbind(., as_tibble(Hmisc::binconf(.$y, .$n)))}  %>%
+  ggplot(aes(x = Nsubj, y = PointEst)) +
+  geom_pointrange(aes(ymax=Upper, ymin=Lower), 
+                  position = position_dodge(def_dodge_width)) +
+  ylab(convergence_y_text_si) +
+  xlab(subject_text) +
+  int_analysis_row
+paper_int_singfit <- paper_int_singfit %>% add_direction_top()
+```
+
+```{r}
+pdf(paste0(image_save_path, "paper_int_singfit.pdf"), width=pic_width, height=pic_height)
+paper_int_singfit
+dev.off()
+paper_int_singfit
+```
+
+## Type I
+
+```{r} 
+paper_int_type1_plot_maker <- function(df) { 
+  df %>%
+    filter(PorT=="type1") %>%
+    mutate(Analysis = analysis_labels[Analysis] %>% set_names(NULL)) %>%
+    mutate(Analysis = factor(Analysis, levels=set_names(analysis_labels, NULL))) %>%
+    mutate(y=Stat*n) %>%
+    {cbind(., as_tibble(Hmisc::binconf(.$y, .$n)))} %>%
+    mutate(Nsubj = as.factor(Nsubj), Nitems = as.factor(Nitems)) %>%
+    mutate(sigDiffFrom05 = factor(as.character(Upper < 0.05 | Lower > 0.05),
+                                     levels=c("FALSE","TRUE"))) %>% 
+    ggplot(aes(x = Nsubj, y = PointEst)) +
+    geom_pointrange(aes(ymax=Upper,ymin=Lower), 
+                    position = position_dodge(def_dodge_width)) +
+    geom_hline(yintercept=0.05, linetype="dashed") +
+    xlab(subject_text) + 
+    scale_y_continuous() + 
+    scale_y_continuous(sec.axis = dup_axis(
+      name="Effects present:", 
+      breaks=c(-Inf, Inf), labels=NULL)) +
+    aes(shape = sigDiffFrom05) +
+    int_analysis_row +
+    facet_grid(vars(Space), vars(Type), 
+               labeller = label_value)+
+    scale_shape_discrete("Differs\nfrom 0.05?", drop=FALSE)
+}
+
+paper_int_type1_int <- summarized_int_data %>%
+  effect_type_name_changer() %>%
+  filter(Block1Code==1) %>%
+  filter(term=="Interaction") %>%
+  paper_int_type1_plot_maker() +
+  ylab(paste0("Type I error rate for:\n", "interaction effect"))
+paper_int_type1_main <- summarized_int_data %>%
+  effect_type_name_changer() %>%
+  filter(Block1Code==1) %>%
+  filter(term=="MainEffect") %>%
+  paper_int_type1_plot_maker() +
+  ylab(paste0("Type I error rate for:\n", "main effect"))
+
+
+paper_int_type1_int  <- paper_int_type1_int  %>% add_top_facet_title("Effects present:")
+paper_int_type1_main <- paper_int_type1_main %>% add_top_facet_title("Effects present:")
+```
+
+```{r}
+pdf(paste0(image_save_path, "paper_int_type1_main.pdf"), width=pic_width, height=pic_height)
+paper_int_type1_main
+dev.off()
+paper_int_type1_main
+```
+
+```{r}
+pdf(paste0(image_save_path, "paper_int_type1_int.pdf"), width=pic_width, height=pic_height)
+paper_int_type1_int
+dev.off()
+paper_int_type1_int
+```
+
+## Power (uncorrected)
+
+
+```{r}
+paper_int_poweruncorrected_maineffect <- summarized_int_data %>%
+  prep_int_plots_power(term_val = "MainEffect",
+                       is_corrected=FALSE) %>%
+  ggplot(aes(x = Nsubj, y = PointEst,
+             group = paste(Analysis, Space, Direction, Type))) +
+  int_power_mods  +
+  ylab(paste0(power_text, "\nfor main effect")) + 
+  smallest_legends_theme
+
+paper_int_poweruncorrected_interaction <- summarized_int_data %>%
+  prep_int_plots_power(term_val = "Interaction",
+                       is_corrected=FALSE) %>%
+  ggplot(aes(x = Nsubj, y = PointEst,
+             group = paste(Analysis, Space, Direction, Type))) +
+  int_power_mods +
+  ylab(paste0(power_text, "\nfor interaction effect")) + 
+  smallest_legends_theme
+
+paper_int_poweruncorrected_maineffect <- paper_int_poweruncorrected_maineffect %>%
+  add_direction_top()
+paper_int_poweruncorrected_interaction <- paper_int_poweruncorrected_interaction %>%
+  add_direction_top()
+
+```
+
+```{r, fig.width=fig_width}
+pdf(paste0(image_save_path, "paper_int_poweruncorrected_maineffect.pdf"), width=pic_width, height=pic_height)
+paper_int_poweruncorrected_maineffect
+dev.off()
+paper_int_poweruncorrected_maineffect
+
+pdf(paste0(image_save_path, "paper_int_poweruncorrected_interaction.pdf"), width=pic_width, height=pic_height)
+paper_int_poweruncorrected_interaction
+dev.off()
+paper_int_poweruncorrected_interaction
+```
+
+## Power (corrected)
+
+```{r}
+paper_int_powercorrected_maineffect <- summarized_int_data %>%
+  prep_int_plots_power(term_val = "MainEffect",
+                       is_corrected = TRUE) %>%
+  ggplot(aes(x = Nsubj, y = PointEst,
+             group = paste(Analysis, Space, Direction, Type))) +
+  int_power_mods +
+  ylab(paste0(corrected_power_text, "\nfor main effect")) + 
+  smallest_legends_theme +
+  
+  scale_shape_manual("Main & int. effects\npresent?",
+                     values=c(`TRUE`=3,`FALSE`=4),
+                     labels=c(`TRUE`=TRUE,`FALSE`=FALSE))
+
+paper_int_powercorrected_interaction <- summarized_int_data %>%
+  prep_int_plots_power(term_val = "Interaction",
+                       is_corrected=TRUE) %>%
+  ggplot(aes(x = Nsubj, y = PointEst,
+             group = paste(Analysis, Space, Direction, Type))) +
+  int_power_mods +
+  ylab(paste0(corrected_power_text, "\nfor interaction effect")) + 
+  smallest_legends_theme
+
+paper_int_powercorrected_maineffect <- paper_int_powercorrected_maineffect %>%
+  add_direction_top()
+paper_int_powercorrected_interaction <- paper_int_powercorrected_interaction %>%
+  add_direction_top()
+``` 
+
+```{r, fig.width=fig_width}
+pdf(paste0(image_save_path, "paper_int_powercorrected_maineffect.pdf"), width=pic_width, height=pic_height)
+paper_int_powercorrected_maineffect
+dev.off()
+paper_int_powercorrected_maineffect
+
+pdf(paste0(image_save_path, "paper_int_powercorrected_interaction.pdf"), width=pic_width, height=pic_height)
+paper_int_powercorrected_interaction
+dev.off()
+paper_int_powercorrected_interaction
+```
+
+## Power advantage
+
+```{r study4 power advantage functions}
+prep_interaction_power_advantage <- function(.data, term_val,
+                                   is_corrected = FALSE, 
+                                   in_log_odds = TRUE) {
+  .data <- .data %>% 
+    prep_int_plots_power(term_val = term_val,
+                         is_corrected = is_corrected) %>%
+    group_by(!!!int_grouping_vars, Type, Type2, Analysis) %>%
+    filter(!any(PointEst %in% c(1,0))) %>%
+    ungroup() %>%
+    select(!!!int_grouping_vars, Type, Type2, Analysis, PointEst, Lower, Upper) %>%
+    mutate(Odds = (PointEst)/(1-PointEst)) %>%
+    select(-PointEst, -Lower, -Upper)
+  
+  if (all(unique(.data$Analysis) %in% analysis_labels)) {
+    v <- names(analysis_labels) %>% set_names(analysis_labels)
+    .data$Analysis <- v[.data$Analysis] %>% set_names(NULL)
+  }
+  
+  .data %>%
+    tidyr::spread(Analysis, Odds) %>% 
+    mutate(`odds ratio` = log/linear,
+           # The additional minus is so that it makes it 'advantage' 
+           #  (ie small = good)
+           `log-odds difference` = log(log) - log(linear))
+}
+
+plot_interaction_power_advantage <- function(.data,
+                                   is_corrected = FALSE, 
+                                   in_log_odds = TRUE) {
+  # Getting the axis text
+  y_var <- quo(`log-odds difference`)
+  if (is_corrected) {
+    if (in_log_odds) y_text <- corrected_log_odds_diff_text
+    else {
+      y_text <- corrected_odds_ratio_text
+      y_var <- quo(`odds ratio`)
+    }
+  } else {
+    if (in_log_odds) y_text <- odds_ratio_text
+    else {
+      y_text <- log_odds_ratio_text 
+      y_var <- quo(`odds ratio`)
+    }
+  }
+  
+  .data %>%
+    ggplot(aes(x = Nsubj, y = `log-odds difference`)) +
+    geom_line() +
+    xlab(subject_text) +
+    { if (in_log_odds == FALSE)
+      list(
+        geom_hline(yintercept=1, linetype="dashed"),
+        scale_y_log10(y_text,
+                      # breaks=c(1, 1.5, 2, 4),
+                      limits =c(0.75, NA))
+      )
+      else
+        geom_hline(yintercept=0, linetype="dashed")
+    }
+}
+
+```
+
+```{r study4_power_advantage_main} 
+paper_int_power_advantage_maineffect <- summarized_int_data %>%
+  prep_interaction_power_advantage(
+    term_val="MainEffect",
+    is_corrected = TRUE) %>%
+  plot_interaction_power_advantage(is_corrected = TRUE) +
+  facet_grid(vars(Space), vars(Type),
+             labeller = label_value) +
+  aes(color=`Direction`, group=`Direction`) +
+  scale_y_continuous(corrected_log_odds_diff_text,
+                     sec.axis = dup_axis(
+                       name=space_text,
+                       breaks=NULL)) +
+  scale_color_discrete("Interaction Direction:")
+
+paper_int_power_advantage_maineffect <- paper_int_power_advantage_maineffect %>% add_top_facet_title("Effects present:")
+pdf(paste0(image_save_path, "paper_int_power_advantage_maineffect.pdf"), width=pic_width, height=pic_height)
+paper_int_power_advantage_maineffect
+dev.off()
+paper_int_power_advantage_maineffect
+```
+
+```{r study4_power_advantage_int}
+paper_int_power_advantage_interaction <- summarized_int_data %>%
+  prep_interaction_power_advantage(term_val="Interaction",
+                                   is_corrected = TRUE) %>%
+  plot_interaction_power_advantage(is_corrected = TRUE) +
+  facet_grid(vars(Space), vars(Type),
+             labeller = label_value) +
+  aes(color=`Direction`, group=`Direction`) +
+  scale_y_continuous(corrected_log_odds_diff_text,
+                     sec.axis = dup_axis(
+                       name=space_text,
+                       breaks=NULL)) +
+  scale_color_discrete("Interaction direction:")
+
+paper_int_power_advantage_interaction <- paper_int_power_advantage_interaction %>% add_top_facet_title("Effects present:")
+pdf(paste0(image_save_path, "paper_int_power_advantage_interaction.pdf"), width=pic_width, height=pic_height)
+paper_int_power_advantage_interaction
+dev.off()
+paper_int_power_advantage_interaction
+```
+
+```{r study4_power_advantage_both}
+paper_int_power_advantage_both <- bind_rows(
+  "main" = summarized_int_data %>%
+    prep_interaction_power_advantage(term_val="MainEffect",
+                                     is_corrected = TRUE),
+  "interaction" = summarized_int_data %>%
+    prep_interaction_power_advantage(term_val="Interaction",
+                                     is_corrected = TRUE),
+  .id="effect"
+) %>%
+  mutate(effect = factor(paste(effect,"effect"),
+                         levels=c("main effect", "interaction effect"))) %>%
+  plot_interaction_power_advantage(is_corrected = TRUE) +
+  facet_grid(vars(Space), vars(effect),
+             labeller = label_value) +
+  aes(linetype=Type2, size=Type2) +
+  scale_linetype_manual("Both effects\npresent?",
+                        values=c("TRUE"=1,"FALSE"=5)) +
+  scale_size_manual("Both effects\npresent?", 
+                    values=c("TRUE"=1,"FALSE"=0.5)) +
+  aes(color=`Direction`, group=paste(Direction,Type)) +
+  scale_y_continuous(corrected_log_odds_diff_text,
+                     sec.axis = dup_axis(
+                       name=space_text,
+                       breaks=NULL)) +
+  scale_color_discrete("Interaction\nDirection:") +
+  smaller_legends_theme
+paper_int_power_advantage_both <- paper_int_power_advantage_both %>% add_top_facet_title("Power advantage for:")
+```
+
+```{r}
+pdf(paste0(image_save_path, "paper_int_power_advantage_both.pdf"), width=pic_width, height=pic_height*1.5)
+paper_int_power_advantage_both
+dev.off()
+paper_int_power_advantage_both
+```
+
+### New plots
+
+```{r}
+
+df <- bind_rows(
+  "main" = summarized_int_data %>%
+    prep_interaction_power_advantage(term_val="MainEffect",
+                                     is_corrected = TRUE),
+  "interaction" = summarized_int_data %>%
+    prep_interaction_power_advantage(term_val="Interaction",
+                                     is_corrected = TRUE),
+  .id="effect"
+) %>%
+  mutate(effect = factor(paste(effect,"effect"),
+                         levels=c("main effect", "interaction effect"))) %>%
+  # Removing redundancy
+  filter(!(Direction=="sub-additive" & Type2 == FALSE)) %>%
+  mutate(int = case_when(
+    Type2 == FALSE & effect == "main effect" ~ "none",
+    Type2 == FALSE & effect != "main effect" ~ "cross-over",
+    TRUE ~ as.character(Direction)
+  )) %>%
+  mutate(int = factor(int, levels=c("none","sub-additive","super-additive","cross-over")))
+
+paper_int_power_advantage_both_new <- df %>%
+  plot_interaction_power_advantage(is_corrected = TRUE) +
+  facet_grid(vars(Space), vars(effect),
+             labeller = label_value) +
+  aes(size="a") +
+  scale_size_manual(guide=FALSE,values=c(1)) +
+  aes(color=`int`, group=paste(int,Type)) +
+  scale_y_continuous(corrected_log_odds_diff_text,
+                     sec.axis = dup_axis(
+                       name=space_text,
+                       breaks=NULL)) +
+  scale_color_manual("Interaction:",
+                       values=c("#003f5c","#bc5090","#ff6361","#ffa600")) +
+  smaller_legends_theme
+
+paper_int_power_advantage_both_new <- paper_int_power_advantage_both_new %>% add_top_facet_title("Power advantage for:")
+
+
+
+pdf(paste0(image_save_path, "paper_int_power_advantage_both_new.pdf"), width=pic_width, height=pic_height*1.5)
+paper_int_power_advantage_both_new
+dev.off()
+paper_int_power_advantage_both_new
+
+```
+
+
+```{r newpowerplots}
+
+int_power_mods2 <- list(
+  geom_line(),
+  xlab(subject_text),
+  geom_pointrange(aes(ymax=Upper, ymin=Lower)),
+  int_analysis_row,
+  facet_grid(vars(Space), vars(effect), 
+             labeller = label_value),
+  scale_y_continuous(sec.axis = dup_axis(name=space_text,
+                                         breaks=NULL))
+)
+add_new_top <- function(p, ...) {
+  add_top_facet_title(p=p, text="Interaction:", n_pan=3, ...)
+}
+
+
+paper_int_powercorrected_maineffect2 <- summarized_int_data %>%
+  prep_int_plots_power(term_val = "MainEffect",
+                       is_corrected = TRUE) %>%
+  mutate(effect = ifelse(Type2==FALSE,"none",as.character(Direction))) %>%
+  ggplot(aes(x = Nsubj, y = PointEst,
+             group = paste(Analysis, Space, Direction, Type))) +
+  int_power_mods2 +
+  ylab(paste0(corrected_power_text, "\nfor main effect")) + 
+  smallest_legends_theme
+
+paper_int_powercorrected_interaction2 <- summarized_int_data %>%
+  prep_int_plots_power(term_val = "Interaction",
+                       is_corrected=TRUE) %>%
+  mutate(effect = ifelse(Type2==FALSE,"cross-over",as.character(Direction))) %>%
+  mutate(effect = factor(effect,levels=c("sub-additive","super-additive","cross-over"))) %>%
+  ggplot(aes(x = Nsubj, y = PointEst,
+             group = paste(Analysis, Space, Direction, Type))) +
+  int_power_mods2 +
+  ylab(paste0(corrected_power_text, "\nfor interaction effect")) + 
+  smallest_legends_theme 
+
+paper_int_powercorrected_maineffect2 <- paper_int_powercorrected_maineffect2 %>%
+  add_new_top()
+paper_int_powercorrected_interaction2 <- paper_int_powercorrected_interaction2 %>%
+  add_new_top()
+
+pdf(paste0(image_save_path, "paper_int_powercorrected_maineffect2.pdf"), width=pic_width, height=pic_height)
+paper_int_powercorrected_maineffect2
+dev.off()
+paper_int_powercorrected_maineffect2
+
+pdf(paste0(image_save_path, "paper_int_powercorrected_interaction2.pdf"), width=pic_width, height=pic_height)
+paper_int_powercorrected_interaction2
+dev.off()
+paper_int_powercorrected_interaction2
+```
+
+
+```{r newpowerplots2}
+
+
+paper_int_poweruncorrected_maineffect2 <- summarized_int_data %>%
+  prep_int_plots_power(term_val = "MainEffect",
+                       is_corrected = FALSE) %>%
+  mutate(effect = ifelse(Type2==FALSE,"none",as.character(Direction))) %>%
+  ggplot(aes(x = Nsubj, y = PointEst,
+             group = paste(Analysis, Space, Direction, Type))) +
+  int_power_mods2 +
+  ylab(paste0(power_text, "\nfor main effect")) + 
+  smallest_legends_theme
+
+paper_int_poweruncorrected_interaction2 <- summarized_int_data %>%
+  prep_int_plots_power(term_val = "Interaction",
+                       is_corrected=FALSE) %>%
+  mutate(effect = ifelse(Type2==FALSE,"cross-over",as.character(Direction))) %>%
+  mutate(effect = factor(effect,levels=c("sub-additive","super-additive","cross-over"))) %>%
+  ggplot(aes(x = Nsubj, y = PointEst,
+             group = paste(Analysis, Space, Direction, Type))) +
+  int_power_mods2 +
+  ylab(paste0(power_text, "\nfor interaction effect")) + 
+  smallest_legends_theme 
+
+paper_int_poweruncorrected_maineffect2 <- paper_int_poweruncorrected_maineffect2 %>%
+  add_new_top()
+paper_int_poweruncorrected_interaction2 <- paper_int_poweruncorrected_interaction2 %>%
+  add_new_top()
+
+pdf(paste0(image_save_path, "paper_int_poweruncorrected_maineffect2.pdf"), width=pic_width, height=pic_height)
+paper_int_poweruncorrected_maineffect2
+dev.off()
+paper_int_poweruncorrected_maineffect2
+
+pdf(paste0(image_save_path, "paper_int_poweruncorrected_interaction2.pdf"), width=pic_width, height=pic_height)
+paper_int_poweruncorrected_interaction2
+dev.off()
+paper_int_poweruncorrected_interaction2
+```
+
+### Huh?
+
+```{r}
+crossing(base = 10^seq(0, 2.5, .5), 
+         diff1 = seq(0, 500, 100), 
+         diff2 = c(0, 10^seq(0, 3, .5))) %>% 
+  mutate(log_diff1_at_condB1 = log(base) - log(base + diff1),
+         log_diff1_at_condB2 = log(base + diff2) - log(base + diff2 + diff1),
+         log_diff_in_diff = log_diff1_at_condB2 - log_diff1_at_condB1) %>%
+  ggplot(aes(x = factor(diff1), y = factor(diff2))) + 
+  geom_tile(aes(fill = log_diff_in_diff)) + 
+  facet_wrap(~ base) + scale_fill_viridis_b()
+
+```
+
+
+# The Parametric Added Effects study
+
+```{r addingthenewdata}
+new_fx_quos <- quos(SubjIntSD, ItemIntSD, SubjSlopeSD, ItemSlopeSD)
+fx_grouping_vars <- list2(!!!binned_grouping_vars, !!!new_fx_quos)
+fx_grouping_vars_without_effectsize <- list2(!!!binned_grouping_vars_without_effectsize, !!!new_fx_quos)
+
+
+fx_all <- readRDS(paste0(new_path, "setal_w_subjitem_effects.RDS")) %>%
+  as_tibble() %>%
+  mutate(EffectSizeName = collapse_effect_sizes(EffectSize),
+         EffectSize = factor(EffectSize),
+         `mean RT` = "ba") %>%
+  mutate(Space = case_when(Space == "" ~ "Raw RTs",
+                           grepl("log",Space) ~ "log(RTs)",
+                           TRUE ~ NA_character_) %>%
+           factor(levels=c("Raw RTs", "log(RTs)"))) %>%
+  select(-Bin)
+
+# REMOVES EXTRA SPACE AND DIFF ITEMS
+summarized_fx_data <- fx_all %>%
+  summarise_mixed_dfs(!!!fx_grouping_vars)%>%
+  filter(Nsubj==Nitems) %>%
+  mutate(w_para = ifelse(SubjSlopeSD>0, "Has parametric random effects", "No parametric random effects"),
+         ints = ifelse(SubjIntSD == 0, "No random intercepts", "Has random intercepts"))
+```
+
+```{r}
+# For the paper, only including data with random intercepts and slopes
+summarized_fx_data <- summarized_fx_data %>%
+  filter(!(SubjSlopeSD>0  & SubjIntSD==0))
+```
+
+
+```{r}
+fx_analysis_row <- list(
+  facet_grid(vars(Space), vars(w_para), 
+             labeller = label_value),
+  aes(color = Analysis),
+  scale_color_manual("Analysis approach", 
+                     values = analysis_colors,
+                     labels = analysis_labels),
+  scale_y_continuous(sec.axis = dup_axis(name=space_text,
+                                         breaks=NULL))
+  )
+```
+
+```{r}
+paper_fx_convergence <- summarized_fx_data %>%
+  filter(EffectSize == 7) %>%
+  filter(Type=="power") %>%
+  base_plot_convergence(fx_grouping_vars) +
+  fx_analysis_row
+```
+
+```{r}
+pdf(paste0(image_save_path, "fx_convergence.pdf"), width=pic_width, height=pic_height)
+paper_fx_convergence
+dev.off()
+paper_fx_convergence
+```
+
+## Singular fits
+
+```{r}
+paper_fx_singfit <- summarized_fx_data %>%
+  filter(EffectSize == 7) %>%
+  filter(Type=="power") %>%
+  base_plot_singfit(fx_grouping_vars) +
+  fx_analysis_row
+```
+
+```{r}
+pdf(paste0(image_save_path, "fx_singfit.pdf"), width=pic_width, height=pic_height)
+paper_fx_singfit
+dev.off()
+paper_fx_singfit
+```
+
+## Type I errors
+
+```{r}
+paper_fx_type1 <- summarized_fx_data %>%
+  base_plot_type1(fx_grouping_vars) +
+  aes(shape = sigDiffFrom05) +
+  fx_analysis_row  +
+  scale_shape_discrete("Differs\nfrom 0.05?")
+```
+
+```{r}
+pdf(paste0(image_save_path, "fx_type1.pdf"), width=pic_width, height=pic_height)
+paper_fx_type1 
+dev.off()
+paper_fx_type1
+```
+
+## Power (uncorrected)
+
+```{r}
+paper_fx_poweruncorrected <- summarized_fx_data %>% 
+  prepare_summed_power_data(fx_grouping_vars, is_corrected=FALSE) %>%
+  mutate(Nsubj=as.factor(Nsubj)) %>%
+  ggplot(aes(x = Nsubj, y = PointEst, shape=paste(EffectSize, "ms"),
+             group=paste0(Analysis,EffectSize))) +
+  geom_pointrange(aes(ymax=Upper, ymin=Lower)) +
+  geom_line() +
+  labs(y=power_text, x=subject_text,
+       shape="effect size") +
+  fx_analysis_row 
+```
+
+```{r, fig.width=fig_width}
+pdf(paste0(image_save_path, "fx_power_uncorrected.pdf"), width=pic_width, height=pic_height)
+paper_fx_poweruncorrected
+dev.off()
+paper_fx_poweruncorrected
+```
+
+## Power (corrected)
+
+```{r}
+paper_fx_powercorrected <- summarized_fx_data %>% 
+  prepare_summed_power_data(fx_grouping_vars, is_corrected=TRUE) %>%
+  mutate(Nsubj=as.factor(Nsubj)) %>%
+  ggplot(aes(x = Nsubj, y = PointEst, shape=paste(EffectSize, "ms"),
+             group=paste0(Analysis,EffectSize))) +
+  geom_pointrange(aes(ymax=Upper, ymin=Lower)) +
+  geom_line() +
+  labs(y=corrected_power_text, x=subject_text,
+       shape="effect size") +
+  fx_analysis_row 
+
+```
+
+```{r, fig.width=fig_width}
+pdf(paste0(image_save_path, "fx_power_corrected.pdf"), width=pic_width, height=pic_height)
+paper_fx_powercorrected
+dev.off()
+paper_fx_powercorrected
+```
+
+# Parametric data plots (Study 1 in paper)
+
+```{r}
+new_statsmo <- readRDS(paste0(new_path, "statdistro_all_v02.RDS")) %>%
+  as_tibble() %>%
+  mutate(DistributionName = case_when(
+    grepl("gaussian", Distribution) ~ "normal",
+    grepl("lognormal", Distribution) ~ "log-normal",
+    grepl("Natural", Distribution) ~ "natural",
+    grepl("15centile_shifted_para", Distribution) ~ "1.5% shft\nlg-nrml",
+    grepl("invsq", Distribution) ~ "invert\nsquare-root",
+    grepl("min_shift", Distribution) ~ "min. shft\nlg-nrml",
+    grepl("recip", Distribution) ~ "reciprocal",
+    TRUE ~ NA_character_)) %>%
+  mutate(DistributionName = factor(DistributionName, levels=c(
+    "natural","normal","log-normal","min. shft\nlg-nrml",
+    "1.5% shft\nlg-nrml","invert\nsquare-root", "reciprocal"
+  ))) %>%
+  mutate(DataSet = case_when(grepl("nsc",SampleName) ~ "NSC",
+                             grepl("fetal",SampleName) ~"F13",
+                             grepl("setal",SampleName) ~"HS18") %>%
+           factor(levels=c("HS18","F13","NSC"))) %>%
+  filter(!grepl("1.5", DistributionName ))
+
+
+
+```
+
+
+```{r}
+qs <- quos(mu,stdev,skewness,kurtosis)
+
+moments_df <- map_dfr(
+  qs,
+  function(q1) {
+    map_dfr(
+      qs,
+      function(q2) {
+        new_statsmo %>%
+          group_by(DataSet,DistributionName,Exclusions) %>%
+          summarise(cor = cor(!!q1, !!q2),
+                    cor2 = list(cor.test(!!q1, !!q2, method="pearson",
+                                    conf.level=0.95)),
+                    q1 = rlang::as_name(q1),
+                    q2 = rlang::as_name(q2),
+                    name = paste0(sort(c(q1,q2)),
+                                  collapse=",")) %>%
+          ungroup()
+      }
+    )
+  }
+) %>%
+  filter(q1 != q2) %>%
+  mutate_at(vars(q1,q2), ~ifelse(.=="stdev","SD",.)) %>%
+  mutate_at(vars(q1,q2), ~ifelse(.=="mu","mean",.)) %>%
+  mutate_at(vars(q1,q2), ~factor(., levels=c("mean","SD","skewness","kurtosis"))) %>%
+  arrange(DataSet, DistributionName, desc(q1), desc(q2)) %>%
+  distinct(Exclusions, DataSet, DistributionName, name, .keep_all=T) %>%
+  mutate(isnatch = ifelse("natural"==DistributionName,"ya","no")) %>% 
+  mutate(ymin = map_dbl(cor2, ~.$conf.int[[1]]),
+         ymax = map_dbl(cor2, ~.$conf.int[[2]])) %>%
+  mutate(DistributionName = DistributionName %>%
+           forcats::fct_recode(
+             bootstrapped="natural",
+             `1.5% shft lg-nrml`="1.5% shft\nlg-nrml",
+             `min. shft lg-nrml`="min. shft\nlg-nrml",
+             `invert square-root`="invert\nsquare-root"
+           ))
+
+p.new_stats_distro_noexcl <- moments_df  %>%
+  filter(Exclusions == FALSE) %>%
+  ggplot(aes(x=DataSet, y=cor,
+             shape=DistributionName,
+             size=isnatch,
+             fill=DistributionName,
+             color=DistributionName)) + 
+  scale_color_manual("Distribution",
+                     values=c("black",rep(alpha("red",0),5))) +
+  scale_fill_discrete("Distribution") +
+  # guides(fill = guide_legend(override.aes=list(shape = 21,color=NA))) +
+  scale_shape_manual("Distribution",
+                     values=c(22,21,21,21,21,21)) +
+  scale_size_manual(guide=FALSE, values=c(2,3)) +
+  geom_point(position = position_dodge(width=0.4)) +
+  facet_grid(q1~q2) +
+  labs(y="Pearson correlation",
+       x="data set")
+
+p.new_stats_distro_excl <- moments_df  %>%
+  filter(Exclusions == TRUE) %>%
+  ggplot(aes(x=DataSet, y=cor,
+             shape=DistributionName,
+             size=isnatch,
+             fill=DistributionName,
+             color=DistributionName)) + 
+  scale_color_manual("Distribution",
+                     values=c("black",rep(alpha("red",0),5))) +
+  scale_fill_discrete("Distribution") +
+  # guides(fill = guide_legend(override.aes=list(shape = 21,color=NA))) +
+  scale_shape_manual("Distribution",
+                     values=c(22,21,21,21,21,21)) +
+  scale_size_manual(guide=FALSE, values=c(2,3)) +
+  geom_point(position = position_dodge(width=0.4)) +
+  facet_grid(q1~q2) +
+  labs(y="Pearson correlation",
+       x="data set")
+
+
+pdf(paste0(image_save_path, "new_stat_distro_noexcl.pdf"), 
+    width=pic_width, height=pic_height*1.5)
+p.new_stats_distro_noexcl
+dev.off()
+p.new_stats_distro_noexcl
+
+
+
+pdf(paste0(image_save_path, "new_stat_distro_excl.pdf"), 
+    width=pic_width, height=pic_height*1.5)
+p.new_stats_distro_excl
+dev.off()
+p.new_stats_distro_excl
+
+p.new_stats_distro_both <- cowplot::plot_grid(
+  p.new_stats_distro_noexcl +
+    theme(legend.position = "none") +
+    coord_cartesian(ylim=c(-1,1)),
+  p.new_stats_distro_excl +
+    theme(legend.position = "none") +
+    coord_cartesian(ylim=c(-1,1)),
+  cowplot::get_legend(p.new_stats_distro_excl +
+    theme(legend.position = "bottom")),
+  labels=c("A","B",""),
+  nrow = 3,
+  rel_heights = c(1,1,0.3)
+)
+
+pdf(paste0(image_save_path, "new_stat_distro_both.pdf"), 
+    width=pic_width, height=pic_height*3)
+p.new_stats_distro_both
+dev.off()
+p.new_stats_distro_both
+
+```
+
+```{r}
+# calculated from the full data files
+full_lambdas <- structure(list(DataSet = structure(c(1L, 1L, 2L, 2L, 3L, 3L), .Label = c("NSC", 
+"HS18", "F13"), class = "factor"), lambda2 = c(-0.6, 0.0600000000000001, 
+-0.52, 0.02, -0.46, -0.38), Exclusions = c(TRUE, FALSE, TRUE, 
+FALSE, TRUE, FALSE)), class = "data.frame", row.names = c(NA, 
+-6L))
+
+
+boxcox_lambda_plot <- new_statsmo %>%
+  left_join(full_lambdas) %>%
+  # filter(grepl("atural",DistributionName)) %>%
+  mutate(DistributionName=forcats::fct_recode(DistributionName,bootstrapped="natural")) %>%
+  ggplot(aes(x=lambda, alpha=Exclusions)) + 
+  geom_histogram(position="identity") +
+  # geom_vline(xintercept = 0,color="grey") +
+  geom_vline(aes(xintercept=lambda2,
+                 linetype=Exclusions)) +
+  # INCLUDE THE LAMBDA FOR THE MAIN THINGS!
+  facet_grid(DistributionName~DataSet) +
+  labs(x="Box-Cox λ") +
+  theme(strip.text.y = element_text(size = rel(0.75)),
+        legend.position = "bottom") +
+  scale_alpha_manual("Data preparation", values=c(1,0.4),
+                     labels=c("pre-exclusion","post-exclusion"))+
+  scale_linetype_manual(guide=FALSE,values=c("solid","dashed")) +
+  scale_x_continuous(breaks=c(-1,-0.5,0,0.5,1))
+
+cairo_pdf(paste0(image_save_path, "box_cox_lambda.pdf"), width=pic_width, height=pic_height*2)
+boxcox_lambda_plot
+dev.off()
+boxcox_lambda_plot
+```
+
+
