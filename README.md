@@ -1,15 +1,11 @@
 # Background
 
-This is the git repo for https://osf.io/uymfp/ (_How reliable are standard reading time analyses? 
-Hierarchical bootstrap reveals substantial power over-optimism and scale-dependent Type I error inflation_).
+This is the git repo for the work presented in Burchill & Jaeger _How reliable are standard reading time analyses? 
+Hierarchical bootstrap reveals substantial power over-optimism and scale-dependent Type I error inflation_ (https://osf.io/uymfp/).
 
-We originally developed a set of libraries and scripts to run the simulation studies presented in the paper over a remote compute cluster. For the revised submission of the paper, we decided to additionally develop scripts that can be run---with sufficient patience---on a modern laptop with sufficiently many cores.
+We originally developed a set of libraries and scripts to run the simulation studies presented in the paper over a remote compute cluster. This code is highly specific to the structure of the remote compute cluster that we used back then. We include it in this repo primarily for anyone who is interested in retracing the exact decisions we made for Studies 3 and 4 in the main text, as well as Auxiliary Studies 2a-d in the supplementary information (see folder `legacy_code`). For the resubmission of the paper, we additionally developed scripts that can be run---with sufficient patience---on a modern laptop. We used these new scripts to conduct additional studies (Studies 1 and 2 in the main text and Auxiliary Study 2e in the supplementary information). These scripts serve as a good starting point for anyone interested in extending our studies, or in conducting parametric or non-parametric simulation studies on their own data (see folder `start_here`).
 
-# Structure
-
-The files here represent both the newly developed scripts (comprising Study 1, Study 2, and Study 2e) that can be more easily run without a remote cluster, as well as the code used for the remote cluster (which  we primarily offer in case one is interested in digging deeper into the analyses and specific methods we used, and would require greater effort to actually run than what it is worth).
-
-## The directory: `run_yourself`
+## The directory: `start_here`
 
 This directory is designed to be more easily replicable and is where interested parties should start if they wish to run our code themselves.
 
@@ -25,13 +21,13 @@ This directory is designed to be more easily replicable and is where interested 
 
 * `collated_files`: this is where the "final" results files compiled from all the separate mm_files will be saved.  The git repo has included example outputs of the collated files but not of the original `mm_files` and `bb_files` (since they contained many dozens GB of data).
 
-## The directory: `older_code`
+## The directory: `legacy_code`
 
-The result files and original code from the remote compute cluster (and R code used to generate figures for the paper) can be found in the subdirectory `older_code`. We offer these files for those curious about the specifics of our previous code--getting the code here working on one's own compute cluster is almost definitely not worth it, although the code could be used as inspiration. Given that the code in `run_yourself` has been radically simplified, we encourage those interested to start there to understand the basics more easily.
+The result files and original code from the remote compute cluster (and R code used to generate figures for the paper) can be found in the subdirectory `legacy_code`. We offer these files for those curious about the specifics of our previous code--getting the code here working on one's own compute cluster is almost definitely not worth it, although the code could be used as inspiration. Given that the code in `start_here` has been radically simplified, we encourage those interested to start there to understand the basics more easily.
 
 ### Subdirectories
 
-* `older_data`: contains the results files and a few of the original data files necessary for certain plots.
+* `legacy_data`: contains the results files and a few of the original data files necessary for certain plots.
 
 * `plots_and_figures`: contains the R code used to generate the figures in the paper. 
 
