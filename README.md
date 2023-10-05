@@ -18,7 +18,7 @@ The scripts generate interim output into the mm_files/, bb_files/, and models/ f
 
 ## The directory: `older_code`
 
-The result files and original code from the remote compute cluster (and R code used to generate figures for the paper) can be found in the subdirectory `older_code`. We offer these files for those curious about the specifics of our code--getting the code here working on one's own compute cluster is almost definitely not worth it, although the code could be used as inspiration.
+The result files and original code from the remote compute cluster (and R code used to generate figures for the paper) can be found in the subdirectory `older_code`. We offer these files for those curious about the specifics of our previous code--getting the code here working on one's own compute cluster is almost definitely not worth it, although the code could be used as inspiration. Given that the code in run_yourself/ has been radically simplified, we encourage those interested to start there to understand the basics more easily.
 
 The older_data/ subdirectory contains the results files. The plots_and_figures/ subdirectory contains the R code used to generate the figures in the paper. 
 

@@ -36,15 +36,29 @@ fetal_file <- "fetal_sim_df.RDS"
 nsc_file   <- "nsc_sim_df.RDS"
 predicted_RT_of_mean_wl <- 327.8723
 
-setal_basis_info <- readRDS(paste0(path, "../", "setal_sim_df.RDS")) %>%
-  mutate(Bins = case_when(Trial.Order  >= new_bins$bin1[1] & Trial.Order <= new_bins$bin1[2] ~ "bin1",
-                          Trial.Order  >= new_bins$bin2[1] & Trial.Order <= new_bins$bin2[2] ~ "bin2",
-                          Trial.Order  >= new_bins$bin3[1] & Trial.Order <= new_bins$bin3[2] ~ "bin3",
-                          TRUE ~ NA_character_)) %>%
-  filter(!is.na(Bins)) %>%
-  group_by(Bins) %>%
-  summarise(meanRT = mean(RT), sdRT = sd(RT),
-            meanLogRT = mean(log10(RT)), sdLogRT = sd(log10(RT)))
+# The way this is calculated is included below
+setal_basis_info <- structure(list(
+  Bins = c("bin1", "bin2", "bin3"),
+  meanRT = c(394.77842501106, 
+             337.828536831483, 299.347902097902), 
+  sdRT = c(204.377823899962, 
+           165.142903447751, 135.67006135807), 
+  meanLogRT = c(2.55114930536008, 
+                2.49000322290013, 2.44366306023715), 
+  sdLogRT = c(0.192444824828533, 
+              0.175779208951909, 0.160181080794851)), 
+  row.names = c(NA, -3L
+  ), class = c("tbl_df", "tbl", "data.frame"))
+
+# setal_basis_info <- readRDS(paste0(data_path, "setal_sim_df.RDS")) %>%
+#   mutate(Bins = case_when(Trial.Order  >= new_bins$bin1[1] & Trial.Order <= new_bins$bin1[2] ~ "bin1",
+#                           Trial.Order  >= new_bins$bin2[1] & Trial.Order <= new_bins$bin2[2] ~ "bin2",
+#                           Trial.Order  >= new_bins$bin3[1] & Trial.Order <= new_bins$bin3[2] ~ "bin3",
+#                           TRUE ~ NA_character_)) %>%
+#   filter(!is.na(Bins)) %>%
+#   group_by(Bins) %>%
+#   summarise(meanRT = mean(RT), sdRT = sd(RT),
+#             meanLogRT = mean(log10(RT)), sdLogRT = sd(log10(RT)))
 
 simple_models <- list(
   linear_power = function(x) lm(RT_with_Effect ~ 1 + SimCond, data = x,
