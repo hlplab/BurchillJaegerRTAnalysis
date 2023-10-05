@@ -40,9 +40,9 @@ options(kableExtra.latex.load_packages = FALSE)
 # NEED TO CHANGE THIS TO CURRENT PATH OF GIT DIRECTORY
 base_path <- "~/Box Sync/Power simulations for RTs/PowerSimulations/BurchillJaegerRTAnalysis/"
 
-cur_dir <- paste0(base_path, "older_code/plots_and_figures/")
-data_path <- paste0(path, "older_code/older_data/")
-image_save_path <-  cur_dir
+cur_dir         <- paste0(base_path, "older_code/plots_and_figures/")
+data_path       <- paste0(base_path, "older_code/older_data/")
+image_save_path <- paste0(base_path, "older_code/output_figures/")
 # Needs the new path for the new data
 new_path <- paste0(base_path, "run_yourself/collated_files/")
 
