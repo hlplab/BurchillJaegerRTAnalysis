@@ -32,6 +32,6 @@ The result files and original code from the remote compute cluster (and R code u
 
 * `plots_and_figures`: contains the R code used to generate the figures in the paper. 
 
-* `previous_functions_and_scripts`: contains the original R code and script files. Many of the files here may never have directly contributed to the results in the manuscript, and represent previous iterations and unpublished / draft work, etc. In order to help direct attention to the scripts that directly start the data generation of the data used in the manuscript, the relevant files have been retroactively renamed `Study_<n>_..._script.R` corresponding to the final study naming conventions in the manuscript.
+* `previous_functions_and_scripts`: contains the original remote cluster R code and script files. Many of the files here may never have directly contributed to the results in the manuscript, and represent previous iterations and unpublished / draft work, etc. In order to help direct attention to the scripts that directly start the data generation of the data used in the manuscript, the relevant files have been retroactively renamed `Study_<n>_..._script.R` corresponding to the final study naming conventions in the manuscript.
 
 
