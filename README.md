@@ -8,18 +8,30 @@ The files here represent both the newly developed scripts (comprising Study 1, S
 
 ## The directory: `run_yourself`
 
-The `runs_and_scripts` folder contains three such scripts, each corresponding to one of the studies we presented in the paper. Each of these scripts will run for many days. For example, using 20 cores of a 2013 MacPro with 64 GB RAM, the script for Study 2 took about 12 days to complete. 
+This directory is designed to be more easily replicable and is where interested parties should start if they wish to run our code themselves.
 
-The input data used by the scripts is stored in the `og_data` folder.
+### Subdirectories
 
-The scripts call functions stored in the `functions` folder, and use two libraries developed as part of this project (burchill/zplyr, which provides convenience functions, and burchill/cs, which provides functionality for distributing work across cores, including remote cores). 
+* `runs_and_scripts`: contains three such scripts, each corresponding to one of the studies we presented in the paper. Each of these scripts will run for many days. For example, using 20 cores of a 2013 MacPro with 64 GB RAM, the script for Study 2 took about 12 days to complete. 
 
-The scripts generate interim output into the `mm_files`, `bb_files`, and `models` folders. These outputs are summarized into the `collated_files` folder. The git repo has included example outputs of the collated files and the models but not of the original mm_files and bb_files (since they contained many dozens GB of data).
+* `og_data`: the input data used by the scripts is stored here.
+
+* `functions`: the scripts call functions stored in the `functions` folder, and use two libraries developed as part of this project (`burchill/zplyr`, which provides convenience functions, and `burchill/cs`, which provides functionality for distributing work across cores, including remote cores). 
+
+* `models`, `bb_files`, `mm_files`: the scripts generate interim output into these folders. The `models` folder will contain the parametric models, `bb_files` will contain the sampling indices for the BATAs, and `mm_files` will contain the model summaries for the fully fleshed out BATAs. 
+
+* `collated_files`: this is where the "final" results files compiled from all the separate mm_files will be saved.  The git repo has included example outputs of the collated files but not of the original `mm_files` and `bb_files` (since they contained many dozens GB of data).
 
 ## The directory: `older_code`
 
 The result files and original code from the remote compute cluster (and R code used to generate figures for the paper) can be found in the subdirectory `older_code`. We offer these files for those curious about the specifics of our previous code--getting the code here working on one's own compute cluster is almost definitely not worth it, although the code could be used as inspiration. Given that the code in `run_yourself` has been radically simplified, we encourage those interested to start there to understand the basics more easily.
 
-The `older_data` subdirectory contains the results files. The `plots_and_figures` subdirectory contains the R code used to generate the figures in the paper. 
+### Subdirectories
 
-The `previous_functions_and_scripts` folder contains the original R code and script files. Many of the files here may never have directly contributed to the results in the manuscript, and represent previous iterations and unpublished / draft work. In order to help direct attention to the scripts that directly ran the data used in the manuscript, the relevant files have been retroactively renamed `Study_<n>_..._script.R` corresponding to the final study naming conventions in the manuscript.
+* `older_data`: contains the results files and a few of the original data files necessary for certain plots.
+
+* `plots_and_figures`: contains the R code used to generate the figures in the paper. 
+
+* `previous_functions_and_scripts`: contains the original R code and script files. Many of the files here may never have directly contributed to the results in the manuscript, and represent previous iterations and unpublished / draft work, etc. In order to help direct attention to the scripts that directly start the data generation of the data used in the manuscript, the relevant files have been retroactively renamed `Study_<n>_..._script.R` corresponding to the final study naming conventions in the manuscript.
+
+
