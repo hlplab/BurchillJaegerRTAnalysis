@@ -1,5 +1,8 @@
 # Background
 
+This is the git repo for https://osf.io/uymfp/ (_How reliable are standard reading time analyses? 
+Hierarchical bootstrap reveals substantial power over-optimism and scale-dependent Type I error inflation_).
+
 We originally developed a set of libraries and scripts to run the simulation studies presented in the paper over a remote compute cluster. For the revised submission of the paper, we decided to additionally develop scripts that can be run---with sufficient patience---on a modern laptop with sufficiently many cores.
 
 # Structure
