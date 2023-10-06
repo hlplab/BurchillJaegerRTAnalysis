@@ -19,9 +19,9 @@ done <- cs::done
 
 # Constants ------------------------------------
 
-# !!!!!!!!!!!! CHANGE THIS!!!!!!!!!!!!!!!!
-main_path = "/Users/tiflo/Library/CloudStorage/Box-Box/_Papers - Box/Power simulations for RTs/PowerSimulations/bundled_stuff/"
-# main_path = "/Users/zburchill/Box Sync/Power simulations for RTs/PowerSimulations/bundled_stuff/"
+# Loading all the boilerplate. CHANGE PATH TO YOUR OWN DIRECTORY
+main_path = "/Users/tiflo/Library/CloudStorage/Box-Box/_Papers - Box/Power simulations for RTs/PowerSimulations/BurchillJaegerRTAnalysis/start_here/"
+# main_path = "/Users/zburchill/Box Sync/Power simulations for RTs/PowerSimulations/BurchillJaegerRTAnalysis/start_here/"
 
 data_path     = paste0(main_path, "og_data/")
 models_path   = paste0(main_path, "models/")

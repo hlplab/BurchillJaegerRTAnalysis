@@ -7,7 +7,7 @@ library(gridExtra)
 
 # Constants --------------------------------------------------------------
 
-source(paste0(cur_dir, "../previous_functions_and_scripts/amlap_constants.R"))
+source(paste0(cur_dir, "../functions_and_scripts/amlap_constants.R"))
 
 # --------------------------------------------------------------
 

@@ -1,6 +1,6 @@
 # Loading all the boilerplate. CHANGE PATH TO YOUR OWN DIRECTORY
-main_path = "/Users/tiflo/Library/CloudStorage/Box-Box/_Papers - Box/Power simulations for RTs/PowerSimulations/BurchillJaegerRTAnalysis/run_yourself/"
-# main_path = "/Users/zburchill/Box Sync/Power simulations for RTs/PowerSimulations/BurchillJaegerRTAnalysis/run_yourself/"
+main_path = "/Users/tiflo/Library/CloudStorage/Box-Box/_Papers - Box/Power simulations for RTs/PowerSimulations/BurchillJaegerRTAnalysis/start_here/"
+# main_path = "/Users/zburchill/Box Sync/Power simulations for RTs/PowerSimulations/BurchillJaegerRTAnalysis/start_here/"
 
 # Run this to load all the right libraries and get all the right constants for the scripts
 source(paste0(main_path, "functions/boilerplate.R"))

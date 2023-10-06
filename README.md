@@ -22,9 +22,9 @@ This directory is designed to be more easily replicable and is where interested 
 
 * `collated_files`: this is where the "final" results files compiled from all the separate mm_files will be saved.  The git repo has included example outputs of the collated files but not of the original `mm_files` and `bb_files` (since they contained many dozens GB of data).
 
-## The directory: `older_code`
+## The directory: `legacy_code`
 
-The result files and original code from the remote compute cluster (and R code used to generate figures for the paper) can be found in the subdirectory `older_code`. We offer these files for those curious about the specifics of our previous code--getting the code here working on one's own compute cluster is almost definitely not worth it, although the code could be used as inspiration. Given that the code in `run_yourself` has been radically simplified, we encourage those interested to start there to understand the basics more easily.
+The result files and original code from the remote compute cluster (and R code used to generate figures for the paper) can be found in the subdirectory `legacy_code`. We offer these files for those curious about the specifics of our previous code--getting the code here working on one's own compute cluster is almost definitely not worth it, although the code could be used as inspiration. Given that the code in `run_yourself` has been radically simplified, we encourage those interested to start there to understand the basics more easily.
 
 ### Subdirectories
 
