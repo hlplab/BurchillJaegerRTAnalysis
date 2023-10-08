@@ -1,7 +1,7 @@
 
 # Libraries ----------------------------------------
-# remotes::install_github("burchill/zplyr")
-# remotes::install_github("burchill/cs")
+remotes::install_github("burchill/zplyr")
+remotes::install_github("burchill/cs")
 
 library(tidyverse)
 library(future)

@@ -6,7 +6,7 @@ main_path = "/Users/tiflo/Library/CloudStorage/Box-Box/_Papers - Box/Power simul
 source(paste0(main_path, "functions/boilerplate.R"))
 
 
-# Make the future plans ----------------------------------
+# Make the future plans to parallelize work ----------------------------------
 plan(list(
   tweak(multisession, workers = 5)
 ))
@@ -17,13 +17,17 @@ source(paste0(code_path, "saving_parametric_models.R"))
 
 
 # NATURAL DF ##########################################################################
+
+# The way these scripts are structured is that each set of BATAs is generated from a row of parameters in data frames, which the columns of the data frame corresponding to parameters used in creating the BATAs. This lets us easily control, edit, and monitor large numbers of runs, using R's df editing code (eg dplyr)
+
+# Below we are making the data frame that will control all the `mm` files (see top-level README)
 all_natch_mm_df <- tidyr::crossing(
-  Bins     = "giant",
+  Bins     = "giant",   # Not important here, but important to the legacy code
   Knum     = seq_along(k_list), # The batch
-  Nsubj    = c(64),
+  Nsubj    = c(64),  
   Nitems   = c(64),
-  Nstories = c(4),
-  iprefix  = c("same_across_item_new", "noexcl_same_across_item_new"),
+  Nstories = c(4), # For the NSC data
+  iprefix  = c("same_across_item_new", "noexcl_same_across_item_new"), 
   EffectSize = c(56),
   Space    = c(""),
   Dataset  = c("nsc", "setal", "fetal"),
@@ -55,25 +59,32 @@ all_natch_mm_df <- tidyr::crossing(
 
 
 # Natural BB dfs -----------------------------------------------------------------
+
+# Because there are multiple mm files per BB file, we start with the mm_df and then work backwards to create the corresponding bb_df so we don't need to make bb files multiple times redundantly
 all_natch_bb_df <- all_natch_mm_df %>%
   select(-Space, -EffectSize, -RType, -mm_file) %>% distinct()
+
+# `remaining_files()` is used often in these scripts: it detects whether certain rows of the data frames already have output files saved, and if so, removes them from the data frame so they aren't rerun. This is useful if a run crashes or you need to restart something without redoing all the work
 remaining_all_natch_bb_files <- remaining_files(all_natch_bb_df, file.exists(bb_file))
 
+# Here we have the call that will create all the BB dfs for the previous data frame
 all_bb <- {
   iterate_over_df(  # Go through all the runs in the table
     remaining_all_natch_bb_files,
-    future_cnd_map,
-    function(zaza) {  # 'zaza' is just a dummy kwarg for NSE
+    future_cnd_map,  # `future_map()`` is from `furrr` and runs these jobs in paralell; `future_cnd_map()` is from `cs` and does the same thing but catches raised conditions so we can see errors, messages, etc. that were raised. when work first began on this project, such code was necessary, but `future` and `furrr` have come a long way since then and now likely have ways of doing something similar
+    function(zaza) {  # 'zaza' is just a dummy kwarg for NSE; ignore it
       words_per_region = 1
       k <- MinK:MaxK
       k_e <- MinK:MaxK
       real_df <- readRDS(real_df_file)
-      filterers <- quos(Group == "Filler-first")
+      filterers <- quos(Group == "Filler-first") # Filtering that will be used for HS18 and F13 BATAs
 
       if (Dataset == "nsc") {
-        # Setting this manually
+        # Setting this manually, but we could have used the parameter in the df
         Nstories <- 4
-
+        
+        
+        # This is not really a 'bb_df', although the variable is called that. This is essentially a cleaned up, trimmed down version of all possible sampling indices and possible subjects for those sampling indices. It's also flexible enough to accomodate word regions that are more than a single word.
         bb_df <- real_df %>%
           group_by(Item) %>%
           summarise(maxWords = max(Word.Order)) %>%
@@ -87,7 +98,8 @@ all_bb <- {
           ungroup() %>%
           add_possible_subjects(real_df, words_per_region) %>%
           zplyr::left_join(distinct(real_df, Story, Item), by="Item")
-
+        
+        # This creates the listed of sampled BATA indices (the bb_dfs)
         l <- map(
           k,
           function(k_e) {
@@ -102,6 +114,9 @@ all_bb <- {
         saveRDS(l, bb_file)
         "done!"
       } else {
+        
+        # Because HS18 and F13 are so similar (and because I started with those datasets), more of their code is tucked away in pre-made functions. The reason the NSC data is often NOT in pre-made functions is essentially the inverse: it differs just enough that it doesn't fit into these functions so I spell it out more explicitly
+        # Also, `zplyr::collect_all()` essentially just collects all the errors, messages, and warnings raised in executing the code it contains, making sure a single error doesn't derail the entire set of runs
         zplyr::collect_all({
           l <- make_simple_sample_list(
             df = real_df, k = k_e,
@@ -121,6 +136,8 @@ all_bb
 
 
 # PARAMETRIC DFS ###############################################################
+
+# The code above was for sampling the natural BATAs. Most of the code below here is now for constructing parametrically generated BATAs. I believe a quirk of the code for parametrically generated BATAs requires there to be natural bb_df BATAs already existing to take as an example of the structure of the BATAs in order for it to work. This was a legacy hack from code where much more elaborate parametrically generated BATAs might be envisioned being made. I apologize for you having to deal with it.
 para_all_mm_df <- all_natch_mm_df %>%
   tidyr::crossing(Distribution = distributions)  %>%
   mutate(MaxK = map_dbl(Knum, ~max(k_list[[.]])),
@@ -138,10 +155,13 @@ para_all_mm_df <- all_natch_mm_df %>%
                           MinK, "_to_", MaxK, ".RDS"))
 
 # Parametric BB dfs -----------------------------------------------------------------
+
+# Again, we do the same thing as we have seen before. I'll refrain from commenting on the same things needlessly from now on
 para_all_bb_df <- para_all_mm_df %>%
   select(-Space, -EffectSize, -RType, -mm_file) %>% distinct()
 remaining_para_all_bb_files <- remaining_files(para_all_bb_df, file.exists(bb_file))
 
+# Note for the parametrically generated BATAs, since there ARE no indices to link to, we include the actual RTs in the bb_dfs, unlike elsewhere
 para_all_bb <- {
   iterate_over_df(
     remaining_para_all_bb_files,
@@ -170,6 +190,8 @@ para_all_bb
 
 
 # Parametric MM dfs -----------------------------------------------------------------
+
+# Here we start generating the `mm` files that contain model results
 remaining_para_all_mm_files <- remaining_files(para_all_mm_df, file.exists(mm_file))
 # Saves MM files
 para_all_mm <- {
@@ -178,13 +200,15 @@ para_all_mm <- {
     future_cnd_map,
     function(zaa) {
       effect_size <- EffectSize
-      data_tidyer <- mixed_cleaner
-      model_funcs <- no_slopes
+      data_tidyer <- mixed_cleaner # the function that extracts the important metrics from the model and data
+      model_funcs <- no_slopes # the regression functions that make the models; note that we break out type1 and power analyses as separate analyses here. This means that there are actually some redundant type1 analyses across different effect sizes. But, this is a very flexible way of doing it
 
       bb_dfs <- readRDS(bb_file)
+      # This function adds the artificial effects to the BATAs
       adder_f <- function(df)
         mutate(df, RT_with_Effect = RT + SimCond * effect_size)
-
+      
+      # Here we add the effects to the BATAs, and apply each of the model funcs to the data
       map(
         bb_dfs,
         function(bb_df) {
@@ -201,6 +225,9 @@ para_all_mm
 
 
 # Save Parametric MM DFs -----------------------------------------------------
+
+# Here we create the 'collated_file`, which is the results file that combines all results of the mm_files into a single file and adds in the parameter metadata
+# We actually didn't end up using this for Study 1: this code is a bit of a relic for what we did for Study 3.
 para_giant_load <- {
   iterate_over_df(
     para_all_mm_df,
@@ -234,10 +261,15 @@ para_giant_load
 ########## Get distributional stats #########################################
 #############################################################################
 
+# This section gets the distributional statistics we use in Study 1
+
+
+# Here, we increase the amount of parallel workers because we found that this part of the process was speeded up by it, but feel free to customize or not change
 plan(list(
   tweak(multisession, workers = 12)
 ))
 
+# This function extracts the distributional information we want from the BATAs
 sample_stats_w_lambda <- list(
   stdev = function(x) sd(x$RT, na.rm = TRUE),
   mu = function(x) mean(x$RT, na.rm = TRUE),
@@ -281,8 +313,9 @@ para_distro_files
 natch_distro_df <- all_natch_mm_df %>%
   mutate(Distribution = "Natural",
          mm_file = gsub("modeldata_","statdistro_", mm_file))
-
 natch_distro_remaining_files <- remaining_files(natch_distro_df, file.exists(mm_file))
+
+# Since the natural BATAs need to be "fleshed out" before we can get the distro stats for them, we do so below
 natch_distro_files <- {
   iterate_over_df(
     natch_distro_remaining_files,
@@ -309,7 +342,7 @@ natch_distro_files <- {
 natch_distro_files
 
 
-# Loads files
+# Loads files into a single results file
 distro_load <- {
   iterate_over_df(
     bind_rows(para_distro_df, natch_distro_df),

@@ -16,7 +16,7 @@ plan(list(
 source(paste0(code_path, "saving_parametric_models.R"))
 
 
-# Used in all the log-shift effect adding functions
+# Used in all the log-shift effect-adding functions
 min_shift_setter <- function(df) {
   min_val = min(df$RT_with_Effect, na.rm = TRUE) - 1 # since log(0) = -Inf
   min_val2 = min(df$RT, na.rm = TRUE) - 1 # since log(0) = -Inf
@@ -24,10 +24,15 @@ min_shift_setter <- function(df) {
                 TypeIShift = min_val2)
 }
 
+
+# Attention: because the NSC data is different enough from the HS18 and F13 data, this script separates them into different runs. We first cover the HS18 and F13, then NSC.
+# It also breaks things up into pre-residualized data, then residualized, then 3-word regions
+
+
 # -----------------------------------------------------
 
 # Make the big df you're going to use
-setal_giant_mm_df <- tidyr::crossing(
+sfetal_giant_mm_df <- tidyr::crossing(
   Bins = "giant",
   Knum = seq_along(k_list),
   Nitems = c(8, 16, 32, 64),
@@ -35,7 +40,7 @@ setal_giant_mm_df <- tidyr::crossing(
   # iprefix = c("same_across_subj", "same_across_subj_noexcl"),
   iprefix = c("same_across_subj_new", "same_across_subj_noexcl_new"),
   EffectSize = c(56, 80), # got rid of the 7*2^x
-  Space = c("_log_space", ""),
+  Space = c(""),
   RType = c("unresidualized"),
   Dataset = c("setal","fetal")) %>%
   filter(Nsubj == Nitems) %>%
@@ -63,17 +68,15 @@ setal_giant_mm_df <- tidyr::crossing(
     # data set
     real_df_file = map2_chr(Dataset, exclname, ~og_data_paths[[.x]][[.y]]))
 
-# setal_giant_mm_df <- setal_giant_mm_df %>% filter(EffectSize==56,Space=="", iprefix=="setal_same_across_subj_new")
-
-setal_giant_bb_df <- setal_giant_mm_df %>%
+sfetal_giant_bb_df <- sfetal_giant_mm_df %>%
   select(-Space, -EffectSize, -RType, -mm_file) %>% distinct()
-remaining_setal_giant_bb_files <- remaining_files(setal_giant_bb_df, file.exists(bb_file))
+remaining_sfetal_giant_bb_files <- remaining_files(sfetal_giant_bb_df, file.exists(bb_file))
 
 
 # Save BB files
-setal_giant_bb <- {
+sfetal_giant_bb <- {
   iterate_over_df(
-    remaining_setal_giant_bb_files,
+    remaining_sfetal_giant_bb_files,
     future_cnd_map,
     function(zaza) {
       k_e <- MinK:MaxK
@@ -95,35 +98,22 @@ setal_giant_bb <- {
     })
 }
 
-# Save MM files
-
-remaining_setal_giant_mm_files <- remaining_files(setal_giant_mm_df, file.exists(mm_file))
+remaining_sfetal_giant_mm_files <- remaining_files(sfetal_giant_mm_df, file.exists(mm_file))
 # Saves MM files
-setal_giant_mm <- {
+sfetal_giant_mm <- {
   iterate_over_df(
-    remaining_setal_giant_mm_files,
+    remaining_sfetal_giant_mm_files,
     future_cnd_map,
     function(zaa) {
       effect_size <- EffectSize
-      # Currently uses mean of Bin 2
-      log_effect <- log_space_effect_size_calculator(
-        mean(setal_basis_info[setal_basis_info$Bins=="bin2", ]$meanRT),
-        effect_size)
-
+      
       model_funcs <- no_slopes_wo_infs_plus_logshift
-
-      if (Space=="") {
-        adder_f <- function(df) {
-          mutate(df, RT_with_Effect = RT + SimCond * effect_size) %>%
-            min_shift_setter()
-        }
-      } else {
-        adder_f <- function(df) {
-          mutate(df, RT_with_Effect = add_in_log_space(RT, SimCond, log_effect)) %>%
-            min_shift_setter()
-        }
+      
+      adder_f <- function(df) {
+        mutate(df, RT_with_Effect = RT + SimCond * effect_size) %>%
+          min_shift_setter()
       }
-
+      
       zplyr::collect_all(
         amlap_make_models(
           bb_file,
@@ -134,63 +124,38 @@ setal_giant_mm <- {
     })
 }
 
-# # Save MM DFs -----------
-# setal_giant_load <- {
-#   iterate_over_df(
-#     setal_giant_mm_df,
-#     map_dfr,
-#     function(i) {
-#       collate_data(mm_file, .multicore = TRUE) %>%
-#         mutate(Nsubj = Nsubj,
-#                Nitems = Nitems,
-#                Dataset = Dataset,
-#                Exclusions = Exclusions,
-#                SampleName = iprefix,
-#                Bin = Bins,
-#                EffectSize = EffectSize,
-#                RType = RType,
-#                Space = Space,
-#                ifile = bb_file,
-#                ofile = mm_file,
-#                MinK = MinK)
-#     }
-#   ) %>%
-#     saveRDS(paste0(complete_path, "logshift_sfetal_v01.RDS"))
-# }
-# setal_giant_load
-
-
-# ya<-readRDS(paste0(complete_path, "logshift_setal_v01.RDS"))
-# sa <- ya %>%
-# giant_cleaner() %>%
-# summarise_mixed_dfs(!!!giant_grouping_vars)
-#
-#
-# sa %>%
-#   group_by(Space,SampleName) %>%summarise(n=n())
-#
-# sa %>%
-#   filter(Space=="", SampleName=="post-exclusion") %>%
-#   mutate(Nsubj = as.numeric(Nsubj)) %>%
-#   base_plot_power(giant_grouping_vars, is_corrected = TRUE) +
-#   aes(color=Analysis, group=Analysis) +
-#   facet_grid(vars(EffectSizeName), vars(SampleName),
-#              labeller = label_value)
-#
-# sa %>%
-#   filter(Space=="") %>% #, SampleName=="post-exclusion") %>%
-#   mutate(Nsubj = as.numeric(Nsubj)) %>%
-#   base_plot_type1(giant_grouping_vars) +
-#   aes(color=Analysis, group=Analysis) +
-#   facet_grid(vars(EffectSizeName), vars(SampleName),
-#              labeller = label_value)
+# Save MM DFs -----------
+sfetal_giant_load <- {
+  iterate_over_df(
+    sfetal_giant_mm_df,
+    map_dfr,
+    function(i) {
+      collate_data(mm_file, .multicore = TRUE) %>%
+        mutate(Nsubj = Nsubj,
+               Nitems = Nitems,
+               Dataset = Dataset,
+               Exclusions = Exclusions,
+               SampleName = iprefix,
+               Bin = Bins,
+               EffectSize = EffectSize,
+               RType = RType,
+               Space = Space,
+               ifile = bb_file,
+               ofile = mm_file,
+               MinK = MinK)
+    }
+  ) %>%
+    saveRDS(paste0(complete_path, "logshift_sfetal_v01.RDS"))
+}
+sfetal_giant_load
 
 
 ######################################################################################################
 # Doing the residualized models ######################################################################
 ######################################################################################################
 
-setal_resid_mm_df <- tidyr::crossing(
+# This data frame is for the residualized BATAs. Due to the increased size of the BATAs (because they have ~15x more data due to the fillers) and due to the fact that many more models are run per BATA (we have residualize so many different ways), we break down the number of BATAs per file. Feel free to adjust the `residual_total_files` variable to whatever you see fit.
+sfetal_resid_mm_df <- tidyr::crossing(
   FillerItemRatio = 15,
   MinK = 1, MaxK = 1,
   iprefix = "same_across_subj_resid_new",
@@ -200,6 +165,7 @@ setal_resid_mm_df <- tidyr::crossing(
   RType = "residualized") %>%
   mutate(Nitems = Nsubj,
          BBitems = (FillerItemRatio + 1) * Nitems) %>%
+  # Here we break down the number of BATAs per file to be significantly fewer
          {
            bind_rows(rep(list(.), residual_total_files))
          } %>%
@@ -209,7 +175,7 @@ setal_resid_mm_df <- tidyr::crossing(
          MinK = MaxK - residual_k_per_file + 1) %>%
   ungroup() %>%
   tidyr::crossing(EffectSize=c(15, 35),
-                  Space = c("_log_space", "")) %>%
+                  Space = c("")) %>%
   arrange(BBitems, MinK) %>%
   mutate(bb_file = paste0(bb_files_path, "bb_", iprefix, "_",
                           Nsubj, "_", Nitems, "_",
@@ -224,19 +190,16 @@ setal_resid_mm_df <- tidyr::crossing(
          # Source data file: the indices in the barebones data file refer to this
          # data set
          real_df_file = map_chr(Dataset, ~og_data_paths[[.x]][["excl"]])
-  )  %>%
-  filter(Space == "")
+  ) 
 
-# setal_resid_mm_df <- setal_resid_mm_df %>% filter(Nsubj==32,EffectSize==15) %>% slice(1:10)
-
-setal_resid_bb_df <- setal_resid_mm_df %>%
+sfetal_resid_bb_df <- sfetal_resid_mm_df %>%
   select(-Space, -EffectSize, -RType, -mm_file) %>% distinct()
-remaining_setal_resid_bb_files <- remaining_files(setal_resid_bb_df, file.exists(bb_file))
+remaining_sfetal_resid_bb_files <- remaining_files(sfetal_resid_bb_df, file.exists(bb_file))
 
 # Save BB files
-setal_resid_bb <- {
+sfetal_resid_bb <- {
   iterate_over_df(
-    remaining_setal_resid_bb_files,
+    remaining_sfetal_resid_bb_files,
     future_cnd_map,
     function(zaza) {
       k_e <- MinK:MaxK
@@ -248,7 +211,7 @@ setal_resid_bb <- {
           df = real_df, k = k_e,
           filter_quosures = filterers,
           # The function and its named additional arguments
-          single_sample_df_function = same_items_per_subj_with_fillers,
+          single_sample_df_function = same_items_per_subj_with_fillers, # Note that we use a different sampling function here
           items_per_subj = BBitems,
           n_subj = Nsubj,
           n_critical_items = Nitems)
@@ -258,43 +221,43 @@ setal_resid_bb <- {
       catchErrors = TRUE)
     })
 }
-remaining_setal_resid_mm_files <- remaining_files(setal_resid_mm_df, file.exists(mm_file))
+
 # Make MM files
+remaining_sfetal_resid_mm_files <- remaining_files(sfetal_resid_mm_df, file.exists(mm_file))
 resid_mm_l <- {
   iterate_over_df(
-    remaining_setal_resid_mm_files,
+    remaining_sfetal_resid_mm_files,
     future_cnd_map,
     function(zaa) {
       effect_size <- EffectSize
       model_funcs <- safe_residual_no_slopes_no_subject_w_logshift
 
-      # Establish adding functions
+      
+      
+      # Establish adding functions. This is a LOOOOT bigger than before because a LOT of pre-processing needs to be done to residualize things. We add the effects, then residualize for each time of analysis.
       adder_f <- function(df) {
         mutate(df, SimCond = ifelse(ItemType=="CriticalRegion", SimCond, 0)) %>%
           mutate(logRT = log10(RT),
                  RT_with_Effect =         (RT + SimCond * effect_size),
                  LogRT_with_Effect = log10(RT + SimCond * effect_size)) %>%
-          # vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv
           min_shift_setter() %>%
           mutate(LgShftRT_with_Effect = log10(RT_with_Effect-PowerShift),
                  LgShftRT = log10(RT-TypeIShift)) %>%
-          # ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
           amlap_residualize_bata_one_y(   RT, BATA_PredRawRT) %>%
           amlap_residualize_bata_one_y(logRT, BATA_PredLogRT) %>%
           amlap_residualize_bata_one_y(      RT_with_Effect, BATA_PredRawRT_with_Effect) %>%
           amlap_residualize_bata_one_y(   LogRT_with_Effect, BATA_PredLogRT_with_Effect) %>%
-          # vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv
           amlap_residualize_bata_one_y(LgShftRT, BATA_PredLgShftRT) %>%
           amlap_residualize_bata_one_y(LgShftRT_with_Effect, BATA_PredLgShftRT_with_Effect) %>%
-          # ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+          # We then filter out the filler data after residualizing
           filter(ItemType=="CriticalRegion") %>%
           mutate(
             RT_Resid =             RT - BATA_PredRawRT,
             LogRT_Resid =   log10(RT) - BATA_PredLogRT,
-            LgShftRT_Resid = LgShftRT - BATA_PredLgShftRT, # <--------------------
+            LgShftRT_Resid = LgShftRT - BATA_PredLgShftRT, 
             RT_Resid_with_Effect =             RT_with_Effect - BATA_PredRawRT_with_Effect,
             LogRT_Resid_with_Effect =       LogRT_with_Effect - BATA_PredLogRT_with_Effect,
-            LgShftRT_Resid_with_Effect = LgShftRT_with_Effect - BATA_PredLgShftRT_with_Effect #<------
+            LgShftRT_Resid_with_Effect = LgShftRT_with_Effect - BATA_PredLgShftRT_with_Effect
             )
       }
 
@@ -309,9 +272,9 @@ resid_mm_l <- {
 }
 
 # # Load the model results for the residualized data frames
-load_setal_resid_mixed_models <- {
+load_sfetal_resid_mixed_models <- {
   iterate_over_df(
-    setal_resid_mm_df,
+    sfetal_resid_mm_df,
     map_dfr,
     function(i) {
       collate_data(mm_file, .multicore = TRUE) %>%
@@ -335,7 +298,7 @@ load_setal_resid_mixed_models <- {
 # Doing the regionized models ########################################################################
 ######################################################################################################
 
-setal_region_mm_df <- tidyr::crossing(
+sfetal_region_mm_df <- tidyr::crossing(
   FillerItemRatio = 15,
   MinK = 1, MaxK = 1,
   iprefix = "same_across_subj_regionized_new",
@@ -354,7 +317,7 @@ setal_region_mm_df <- tidyr::crossing(
          MinK = MaxK - residual_k_per_file + 1) %>%
   ungroup() %>%
   tidyr::crossing(EffectSize=c(15, 35),
-                  Space = c("_log_space", "")) %>%
+                  Space = c("")) %>%
   arrange(FillerItems, MinK) %>%
   mutate(bb_file = paste0(bb_files_path, "bb_", iprefix, "_",
                           Nsubj, "_", Nitems, "_",
@@ -369,19 +332,16 @@ setal_region_mm_df <- tidyr::crossing(
          # Source data file: the indices in the barebones data file refer to this
          # data set
          real_df_file = map_chr(Dataset, ~og_data_paths[[.x]][["excl"]])
-  )  %>%
-  filter(Space == "")
+  ) 
 
-# setal_region_mm_df <- setal_region_mm_df %>% filter(Nsubj==32,EffectSize==15) %>% slice(1:10)
-
-setal_region_bb_df <- setal_region_mm_df %>%
+sfetal_region_bb_df <- sfetal_region_mm_df %>%
   select(-Space, -EffectSize, -RType, -mm_file) %>% distinct()
-remaining_setal_region_bb_files <- remaining_files(setal_region_bb_df, file.exists(bb_file))
+remaining_sfetal_region_bb_files <- remaining_files(sfetal_region_bb_df, file.exists(bb_file))
 
 # Save BB files
-setal_region_bb <- {
+sfetal_region_bb <- {
   iterate_over_df(
-    remaining_setal_region_bb_files,
+    remaining_sfetal_region_bb_files,
     future_cnd_map,
     function(zaza) {
       k_e <- MinK:MaxK
@@ -409,15 +369,14 @@ setal_region_bb <- {
 }
 
 # MM
-remaining_setal_region_mm_files <- remaining_files(setal_region_mm_df, file.exists(mm_file))
+remaining_sfetal_region_mm_files <- remaining_files(sfetal_region_mm_df, file.exists(mm_file))
 # Run MM
 region_mm_l <- {
   iterate_over_df(
-    remaining_setal_region_mm_files,
+    remaining_sfetal_region_mm_files,
     future_cnd_map,
     function(zaa) {
       effect_size <- EffectSize
-      # Doesn't double-dip subjects, since they've been residualized out
       model_funcs <- safe_residual_no_slopes_no_subject_w_logshift
       
       adder_f <- function(df) {
@@ -425,19 +384,15 @@ region_mm_l <- {
           mutate(logRT = log10(RT),
                  RT_with_Effect =         (RT + SimCond * effect_size),
                  LogRT_with_Effect = log10(RT + SimCond * effect_size)) %>%
-          # vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv
           min_shift_setter() %>%
           mutate(LgShftRT_with_Effect = log10(RT_with_Effect - PowerShift),
                  LgShftRT = log10(RT - TypeIShift)) %>%
-          # ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
           amlap_residualize_bata_one_y(   RT, BATA_PredRawRT) %>%
           amlap_residualize_bata_one_y(logRT, BATA_PredLogRT) %>%
           amlap_residualize_bata_one_y(   RT_with_Effect, BATA_PredRawRT_with_Effect) %>%
           amlap_residualize_bata_one_y(LogRT_with_Effect, BATA_PredLogRT_with_Effect) %>%
-          # vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv
           amlap_residualize_bata_one_y(LgShftRT, BATA_PredLgShftRT) %>%
           amlap_residualize_bata_one_y(LgShftRT_with_Effect, BATA_PredLgShftRT_with_Effect) %>%
-          # ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
           # Filters out fillers
           filter(ItemType == "CriticalRegion") %>%
           mutate(UniqueItem = factor(UniqueItem)) %>%
@@ -445,12 +400,11 @@ region_mm_l <- {
           mutate(
             RT_Resid =             RT - BATA_PredRawRT,
             LogRT_Resid =   log10(RT) - BATA_PredLogRT,
-            LgShftRT_Resid = LgShftRT - BATA_PredLgShftRT, # <--------------------
+            LgShftRT_Resid = LgShftRT - BATA_PredLgShftRT,
             RT_Resid_with_Effect =             RT_with_Effect - BATA_PredRawRT_with_Effect,
             LogRT_Resid_with_Effect =       LogRT_with_Effect - BATA_PredLogRT_with_Effect,
-            LgShftRT_Resid_with_Effect = LgShftRT_with_Effect - BATA_PredLgShftRT_with_Effect #<------
+            LgShftRT_Resid_with_Effect = LgShftRT_with_Effect - BATA_PredLgShftRT_with_Effect 
           ) %>%
-          # Really important to have this right!!!!!!!!!
           group_by(Item, UniqueItem, Subject, UniqueSubject, SimCond, ItemAmbValue, SubjectAmbValue) %>%
           summarise(      RT_Resid = mean(      RT_Resid, na.rm = TRUE),
                           LogRT_Resid = mean(   LogRT_Resid, na.rm = TRUE),
@@ -474,13 +428,10 @@ region_mm_l <- {
     })
 }
 
-
- 
-
 # Loads files
-setal_region_load <- {
+sfetal_region_load <- {
   iterate_over_df(
-    setal_region_mm_df,
+    sfetal_region_mm_df,
     map_dfr,
     function(i) {
       collate_data(mm_file, .multicore = TRUE) %>%
@@ -508,6 +459,7 @@ setal_region_load <- {
 # NSC data ###########################################################################################
 ######################################################################################################
 
+# Now onto the NSC data
 
 # Preresidualized data =============================================================
 nsc_giant_mm_df <- tidyr::crossing(
@@ -517,8 +469,8 @@ nsc_giant_mm_df <- tidyr::crossing(
   Nsubj = c(8, 16, 32, 64),
   Nstories = c(4),
   iprefix = c("same_across_subj_new", "same_across_subj_noexcl_new"),
-  EffectSize = c(56, 80), # got rid of the 7*2^x
-  Space = c("_log_space", ""),
+  EffectSize = c(56, 80), 
+  Space = c(""),
   RType = c("unresidualized"),
   Dataset = c("nsc")) %>%
   filter(Nsubj == Nitems) %>%
@@ -544,10 +496,7 @@ nsc_giant_mm_df <- tidyr::crossing(
                      MinK, "_to_", MaxK, ".RDS"),
     # Source data file: the indices in the barebones data file refer to this
     # data set
-    real_df_file = map2_chr(Dataset, exclname, ~og_data_paths[[.x]][[.y]])) %>%
-  filter(Space=="")
-
-# nsc_giant_mm_df <- nsc_giant_mm_df %>% filter(EffectSize==56,Space=="", iprefix=="nsc_same_across_subj_new")
+    real_df_file = map2_chr(Dataset, exclname, ~og_data_paths[[.x]][[.y]]))
 
 nsc_giant_bb_df <- nsc_giant_mm_df %>%
   select(-Space, -EffectSize, -RType, -mm_file) %>% distinct()
@@ -608,11 +557,7 @@ nsc_giant_mm <- {
     future_cnd_map,
     function(zaa) {
       effect_size <- EffectSize
-      # Currently uses mean of Bin 2
-      log_effect <- log_space_effect_size_calculator(
-        mean(setal_basis_info[setal_basis_info$Bins=="bin2", ]$meanRT),
-        effect_size)
-      
+
       bb_list <- readRDS(bb_file)
       real_df <- readRDS(real_df_file)
       
@@ -621,17 +566,9 @@ nsc_giant_mm <- {
       effect_size <- EffectSize
       data_tidyer <- mixed_cleaner
       
-      
-      if (Space=="") {
-        adder_f <- function(df) {
-          mutate(df, RT_with_Effect = RT + SimCond * effect_size) %>%
-            min_shift_setter()
-        }
-      } else {
-        adder_f <- function(df) {
-          mutate(df, RT_with_Effect = add_in_log_space(RT, SimCond, log_effect)) %>%
-            min_shift_setter()
-        }
+      adder_f <- function(df) {
+        mutate(df, RT_with_Effect = RT + SimCond * effect_size) %>%
+          min_shift_setter()
       }
       
       purrr::map(
@@ -726,16 +663,11 @@ nsc_resid_mm_df <- tidyr::crossing(
          # Source data file: the indices in the barebones data file refer to this
          # data set
          real_df_file = map_chr(Dataset, ~og_data_paths[[.x]][["excl"]])
-  )  %>%
-  filter(Nitems > 1) %>% # Cuz we need at least two conditions per story
-  filter(Space == "")
-
-# nsc_resid_mm_df <- nsc_resid_mm_df[c(1:10),]
+  )
 
 nsc_resid_bb_df <- nsc_resid_mm_df %>%
   select(-Space, -EffectSize, -RType, -mm_file) %>% distinct()
 remaining_nsc_resid_bb_files <- remaining_files(nsc_resid_bb_df, file.exists(bb_file))
-
 
 # Make the bb dfs for the residualized data frames
 bb_nsc_resid_l <- {
@@ -809,27 +741,23 @@ nsc_resid_mm_l <-{
           mutate(logRT = log10(RT),
                  RT_with_Effect =         (RT + SimCond * effect_size),
                  LogRT_with_Effect = log10(RT + SimCond * effect_size)) %>%
-          # vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv
           min_shift_setter() %>%
           mutate(LgShftRT_with_Effect = log10(RT_with_Effect-PowerShift),
                  LgShftRT = log10(RT-TypeIShift)) %>%
-          # ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
           amlap_residualize_bata_one_y(   RT, BATA_PredRawRT) %>%
           amlap_residualize_bata_one_y(logRT, BATA_PredLogRT) %>%
           amlap_residualize_bata_one_y(      RT_with_Effect, BATA_PredRawRT_with_Effect) %>%
           amlap_residualize_bata_one_y(   LogRT_with_Effect, BATA_PredLogRT_with_Effect) %>%
-          # vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv
           amlap_residualize_bata_one_y(LgShftRT, BATA_PredLgShftRT) %>%
           amlap_residualize_bata_one_y(LgShftRT_with_Effect, BATA_PredLgShftRT_with_Effect) %>%
-          # ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
           filter(ItemType=="CriticalRegion") %>%
           mutate(
             RT_Resid =             RT - BATA_PredRawRT,
             LogRT_Resid =   log10(RT) - BATA_PredLogRT,
-            LgShftRT_Resid = LgShftRT - BATA_PredLgShftRT, # <--------------------
+            LgShftRT_Resid = LgShftRT - BATA_PredLgShftRT, 
             RT_Resid_with_Effect =             RT_with_Effect - BATA_PredRawRT_with_Effect,
             LogRT_Resid_with_Effect =       LogRT_with_Effect - BATA_PredLogRT_with_Effect,
-            LgShftRT_Resid_with_Effect = LgShftRT_with_Effect - BATA_PredLgShftRT_with_Effect #<------
+            LgShftRT_Resid_with_Effect = LgShftRT_with_Effect - BATA_PredLgShftRT_with_Effect
           )
       }
       
@@ -917,11 +845,7 @@ nsc_region_mm_df <- tidyr::crossing(
          # Source data file: the indices in the barebones data file refer to this
          # data set
          real_df_file = map_chr(Dataset, ~og_data_paths[[.x]][["excl"]])
-  )  %>%
-  filter(Nitems > 1) %>% # Cuz we need at least two conditions per story
-  filter(Space == "")
-
-# nsc_region_mm_df <- nsc_region_mm_df[c(1:10),]
+  ) 
 
 nsc_region_bb_df <- nsc_region_mm_df %>%
   select(-Space, -EffectSize, -RType, -mm_file) %>% distinct()
@@ -933,7 +857,7 @@ nsc_region_bb_lists <- {
     remaining_nsc_region_bb_files,
     future_cnd_map,
     function(zaza) {
-      # First, n is 1, then it will be changed to n=3
+      # First, n is 1, then it will be changed to n=3, don't worry
       n = 1
       words_per_critical_region = 3
       k = MinK:MaxK
@@ -992,19 +916,15 @@ nsc_region_mm_l <- {
           mutate(logRT = log10(RT),
                  RT_with_Effect =         (RT + SimCond * effect_size),
                  LogRT_with_Effect = log10(RT + SimCond * effect_size)) %>%
-          # vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv
           min_shift_setter() %>%
           mutate(LgShftRT_with_Effect = log10(RT_with_Effect - PowerShift),
                  LgShftRT = log10(RT - TypeIShift)) %>%
-          # ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
           amlap_residualize_bata_one_y(   RT, BATA_PredRawRT) %>%
           amlap_residualize_bata_one_y(logRT, BATA_PredLogRT) %>%
           amlap_residualize_bata_one_y(   RT_with_Effect, BATA_PredRawRT_with_Effect) %>%
           amlap_residualize_bata_one_y(LogRT_with_Effect, BATA_PredLogRT_with_Effect) %>%
-          # vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv
           amlap_residualize_bata_one_y(LgShftRT, BATA_PredLgShftRT) %>%
           amlap_residualize_bata_one_y(LgShftRT_with_Effect, BATA_PredLgShftRT_with_Effect) %>%
-          # ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
           # Filters out fillers
           filter(ItemType == "CriticalRegion") %>%
           mutate(UniqueItem = factor(UniqueItem)) %>%
@@ -1012,12 +932,11 @@ nsc_region_mm_l <- {
           mutate(
             RT_Resid =             RT - BATA_PredRawRT,
             LogRT_Resid =   log10(RT) - BATA_PredLogRT,
-            LgShftRT_Resid = LgShftRT - BATA_PredLgShftRT, # <--------------------
+            LgShftRT_Resid = LgShftRT - BATA_PredLgShftRT,
             RT_Resid_with_Effect =             RT_with_Effect - BATA_PredRawRT_with_Effect,
             LogRT_Resid_with_Effect =       LogRT_with_Effect - BATA_PredLogRT_with_Effect,
-            LgShftRT_Resid_with_Effect = LgShftRT_with_Effect - BATA_PredLgShftRT_with_Effect #<------
+            LgShftRT_Resid_with_Effect = LgShftRT_with_Effect - BATA_PredLgShftRT_with_Effect
           ) %>%
-          # Really important to have this right!!!!!!!!!
           group_by(Item, UniqueStory, Story, UniqueItem, Subject, UniqueSubject, SimCond) %>%
           summarise(      RT_Resid = mean(      RT_Resid, na.rm = TRUE),
                           LogRT_Resid = mean(   LogRT_Resid, na.rm = TRUE),

@@ -1,5 +1,13 @@
-remotes::install_github("burchill/zplyr")
-remotes::install_github("burchill/cs")
+# Loading all the boilerplate. CHANGE PATH TO YOUR OWN DIRECTORY
+main_path = "/Users/tiflo/Library/CloudStorage/Box-Box/_Papers - Box/Power simulations for RTs/PowerSimulations/BurchillJaegerRTAnalysis/start_here/"
+# main_path = "/Users/zburchill/Box Sync/Power simulations for RTs/PowerSimulations/BurchillJaegerRTAnalysis/start_here/"
+
+# Run this to load all the right libraries and get all the right constants for the scripts
+source(paste0(main_path, "functions/boilerplate.R"))
+
+
+# Note that this script is a little more similar to the code in `legacy_code`. I've kept it like this as a sort of 'introduction' to that code, and because this is what we ran to produce the Study 2e results
+
 
 library(tidyverse)
 library(future)
@@ -8,7 +16,8 @@ library(cs)
 library(beepr)
 library(broom.mixed) # need to load this for weird S3 reasons
 
-# Make the future plans
+# Make the future plans; Because this script is meant to be more "interactive", it runs the jobs in parallel but ALSO in parallel to the current R session, letting the user do other things while waiting for the jobs to finish.
+# Because of this, the future hierarchy is different, and so that it can automatically beep when the jobs are done, I've added another level so that it works with `cs`'s `%beep%` function
 plan(list(
   tweak(multisession, workers = 1), # for the beep!
   tweak(multisession, workers = 1), # for the initialization
@@ -16,26 +25,6 @@ plan(list(
 ))
 
 done <- cs::done
-
-# Constants ------------------------------------
-
-# Loading all the boilerplate. CHANGE PATH TO YOUR OWN DIRECTORY
-main_path = "/Users/tiflo/Library/CloudStorage/Box-Box/_Papers - Box/Power simulations for RTs/PowerSimulations/BurchillJaegerRTAnalysis/start_here/"
-# main_path = "/Users/zburchill/Box Sync/Power simulations for RTs/PowerSimulations/BurchillJaegerRTAnalysis/start_here/"
-
-data_path     = paste0(main_path, "og_data/")
-models_path   = paste0(main_path, "models/")
-bb_files_path = paste0(main_path, "bb_files/")
-mm_files_path = paste0(main_path, "mm_files/")
-complete_path = paste0(main_path, "collated_files/")
-code_path     = paste0(main_path, "functions/")
-
-nsc_file_path = data_path
-nsc_df_file = "nsc_sim_df.RDS"
-model_files_path = models_path
-
-setal_file_path = data_path
-setal_df_file = "setal_sim_df.RDS"
 
 # Loading code -------------------------------------------
 
@@ -45,6 +34,8 @@ source(paste0(code_path, "amlap_modeling_data_functions.R"))
 source(paste0(code_path, "modeling_data_functions.R"))
 source(paste0(code_path, "amlap_bb_making_functions.R"))
 
+
+# This is for adding normally distributed residuals to certain columns
 add_gauss <- function(df, joincol, sd, name,
                       logspace_mean = NA) {
   if (!is.na(logspace_mean))
@@ -60,6 +51,7 @@ add_gauss <- function(df, joincol, sd, name,
   suppressMessages(left_join(df,tmp))
 }
 
+# This is a custom way of automatically adding in bb_file names rather than manually doing it each time 
 add_bb_filename <- function(df, name=NA) {
   if (is.na(name)) {
     df %>%
@@ -119,7 +111,7 @@ starter_mm_df <- tidyr::crossing(
          MinK = map_dbl(Knum, ~min(k_list[[.]]))) %>%
   add_bb_filename() %>%
   add_mm_filename() %>%
-  # Only looking at a single bin and space
+  # Only looking at a single bin and space: `bin2` is the medium mean-RT bin
   filter(Bins=="bin2") %>%
   # If one of the intercepts is 0, both should be
   filter(!(ItemIntSD==0 & SubjIntSD!=0),
@@ -138,13 +130,15 @@ full_ranefs_bb_df <- full_ranefs_mm_df %>% distinct(bb_file, .keep_all=TRUE)
 remaining_full_ranefs_bb_files <- remaining_files(full_ranefs_bb_df, file.exists(bb_file))
 
 # Save BB files
+# Notice here that I use `%beep%`, which is essentially an equivalent to future's `%<-%`, but requires an additional multisession level and beeps when the work is done. I used this very frequently in the legacy code because I was building out the code and debugging often, etc., but moving forward, I don't recommend it unless one is in a similar situation
+# It will let the user use the same R session for doing other things in the meantime as well, which was helpful since I had code that would monitor what was happening on the remote cluster that I was using.
 full_ranefs_bb %beep% {
   iterate_over_df(
     remaining_full_ranefs_bb_files,
     future_cnd_map,
     function(zaza) {
       k_e <- MinK:MaxK
-      bin <- new_bins[[Bins]]
+      bin <- new_bins[[Bins]]  #`new_bins` contains the trial start and stop info on the mean-RT bins in Study 2d
       low <- bin[1]
       high<- bin[2]
       filterers <- quos(Trial.Order  >= !!enquo(low) &
@@ -157,7 +151,7 @@ full_ranefs_bb %beep% {
           df = real_df, k = k_e,
           filter_quosures = filterers,
           # The function and its named additional arguments
-          single_sample_df_function = within_subj_and_item, # same_items_per_subj,
+          single_sample_df_function = within_subj_and_item,
           items_per_subj = Nitems,
           n_subj = Nsubj)
         saveRDS(l, bb_file)
@@ -166,6 +160,7 @@ full_ranefs_bb %beep% {
       catchErrors = TRUE)
     })
 }
+# In my legacy code, I would check to see if the code was done by calling something like `done(full_ranefs_bb)`, but because this is in a script format, calling `full_ranefs_bb` halts the rest of the script until these jobs are finished executing
 full_ranefs_bb
 
 # Make MM files
@@ -192,7 +187,7 @@ full_ranefs_mm %beep% {
             add_gauss(UniqueSubject, SubjSlopeSD, SubjSlopeEffect) %>%
             add_gauss(UniqueItem,    ItemSlopeSD, ItemSlopeEffect) %>%
             # IMPORTANTLY THIS ADDS BY-SUBJ & ITEM INTERCEPTS FOR ALLLLLLLL SITUATIONS
-            # EVEN FOR TYPE1 STUFFF
+            # EVEN FOR TYPE1 DATA
             mutate(RT = RT + ItemIntEffect + SubjIntEffect +
                      SimCond * SubjSlopeEffect +
                      SimCond * ItemSlopeEffect,
@@ -206,7 +201,7 @@ full_ranefs_mm %beep% {
             add_gauss(UniqueSubject, SubjSlopeSD, SubjSlopeEffect, bin2meanRT) %>%
             add_gauss(UniqueItem,    ItemSlopeSD, ItemSlopeEffect, bin2meanRT) %>%
             # IMPORTANTLY THIS ADDS BY-SUBJ & ITEM INTERCEPTS FOR ALLLLLLLL SITUATIONS
-            # EVEN FOR TYPE1 STUFFF
+            # EVEN FOR TYPE1 DATA
             mutate(RT = 10^(log10(RT) + ItemIntEffect + SubjIntEffect),
                    RT = add_in_log_space(RT, SimCond, 
                                          (SubjSlopeEffect + ItemSlopeEffect)),

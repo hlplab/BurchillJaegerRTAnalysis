@@ -44,7 +44,7 @@ cur_dir         <- paste0(base_path, "legacy_code/plots_and_figures/")
 data_path       <- paste0(base_path, "legacy_code/legacy_data/")
 image_save_path <- paste0(base_path, "legacy_code/output_figures/")
 # Needs the new path for the new data
-new_path <- paste0(base_path, "run_yourself/collated_files/")
+new_path <- paste0(base_path, "start_here/collated_files/")
 
 
 source(paste0(cur_dir, "SI_functions_and_constants.R"))
