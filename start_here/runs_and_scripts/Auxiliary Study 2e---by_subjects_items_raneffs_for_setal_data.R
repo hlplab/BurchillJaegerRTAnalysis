@@ -1,23 +1,26 @@
 # Loading all the boilerplate. CHANGE PATH TO YOUR OWN DIRECTORY
-main_path = "/Users/tiflo/Library/CloudStorage/Box-Box/_Papers - Box/Power simulations for RTs/PowerSimulations/BurchillJaegerRTAnalysis/start_here/"
-# main_path = "/Users/zburchill/Box Sync/Power simulations for RTs/PowerSimulations/BurchillJaegerRTAnalysis/start_here/"
+main_path = "/Users/YYY/BurchillJaegerRTAnalysis/start_here/"
 
 # Run this to load all the right libraries and get all the right constants for the scripts
 source(paste0(main_path, "functions/boilerplate.R"))
 
-
-# Note that this script is a little more similar to the code in `legacy_code`. I've kept it like this as a sort of 'introduction' to that code, and because this is what we ran to produce the Study 2e results
-
+# Note that this script is a little more similar to the code in `legacy_code`. 
+#  I've kept it like this as a sort of 'introduction' to that code, and because 
+#  this is what we ran to produce the Study 2e results
 
 library(tidyverse)
 library(future)
 library(furrr)
 library(cs)
 library(beepr)
-library(broom.mixed) # need to load this for weird S3 reasons
+library(broom.mixed) # need to load this for S3 reasons
 
-# Make the future plans; Because this script is meant to be more "interactive", it runs the jobs in parallel but ALSO in parallel to the current R session, letting the user do other things while waiting for the jobs to finish.
-# Because of this, the future hierarchy is different, and so that it can automatically beep when the jobs are done, I've added another level so that it works with `cs`'s `%beep%` function
+# Make the future plans; Because this script is meant to be more "interactive", 
+#  it runs the jobs in parallel but ALSO in parallel to the current R session, 
+#  letting the user do other things while waiting for the jobs to finish.
+# Because of this, the future hierarchy is different, and so that it can 
+#  automatically beep when the jobs are done, I've added another level so 
+#  that it works with `cs`'s `%beep%` function
 plan(list(
   tweak(multisession, workers = 1), # for the beep!
   tweak(multisession, workers = 1), # for the initialization
@@ -51,7 +54,8 @@ add_gauss <- function(df, joincol, sd, name,
   suppressMessages(left_join(df,tmp))
 }
 
-# This is a custom way of automatically adding in bb_file names rather than manually doing it each time 
+# This is a custom way of automatically adding in bb_file names rather 
+#  than manually doing it each time 
 add_bb_filename <- function(df, name=NA) {
   if (is.na(name)) {
     df %>%
@@ -130,15 +134,21 @@ full_ranefs_bb_df <- full_ranefs_mm_df %>% distinct(bb_file, .keep_all=TRUE)
 remaining_full_ranefs_bb_files <- remaining_files(full_ranefs_bb_df, file.exists(bb_file))
 
 # Save BB files
-# Notice here that I use `%beep%`, which is essentially an equivalent to future's `%<-%`, but requires an additional multisession level and beeps when the work is done. I used this very frequently in the legacy code because I was building out the code and debugging often, etc., but moving forward, I don't recommend it unless one is in a similar situation
-# It will let the user use the same R session for doing other things in the meantime as well, which was helpful since I had code that would monitor what was happening on the remote cluster that I was using.
+# Notice here that I use `%beep%`, which is essentially an equivalent to future's `%<-%`, 
+#  but requires an additional multisession level and beeps when the work is done. I 
+#  used this very frequently in the legacy code because it is helpful for building out the code 
+#  and debugging often, etc.,
+# It will let the user use the same R session for doing other things in the meantime as well, 
+#  which was helpful since I had code that would monitor what was happening on the 
+#  remote cluster that I was using.
 full_ranefs_bb %beep% {
   iterate_over_df(
     remaining_full_ranefs_bb_files,
     future_cnd_map,
     function(zaza) {
       k_e <- MinK:MaxK
-      bin <- new_bins[[Bins]]  #`new_bins` contains the trial start and stop info on the mean-RT bins in Study 2d
+      #`new_bins` contains the trial start and stop info on the mean-RT bins in Study 2d
+      bin <- new_bins[[Bins]]  
       low <- bin[1]
       high<- bin[2]
       filterers <- quos(Trial.Order  >= !!enquo(low) &
@@ -160,7 +170,9 @@ full_ranefs_bb %beep% {
       catchErrors = TRUE)
     })
 }
-# In my legacy code, I would check to see if the code was done by calling something like `done(full_ranefs_bb)`, but because this is in a script format, calling `full_ranefs_bb` halts the rest of the script until these jobs are finished executing
+# In my legacy code, I would check to see if the code was done by calling something
+#  like `done(full_ranefs_bb)`, but because this is in a script format, calling
+#  `full_ranefs_bb` halts the rest of the script until these jobs are finished executing
 full_ranefs_bb
 
 # Make MM files
@@ -186,7 +198,7 @@ full_ranefs_mm %beep% {
             add_gauss(UniqueItem,    ItemIntSD,   ItemIntEffect) %>%
             add_gauss(UniqueSubject, SubjSlopeSD, SubjSlopeEffect) %>%
             add_gauss(UniqueItem,    ItemSlopeSD, ItemSlopeEffect) %>%
-            # IMPORTANTLY THIS ADDS BY-SUBJ & ITEM INTERCEPTS FOR ALLLLLLLL SITUATIONS
+            # IMPORTANTLY THIS ADDS BY-SUBJ & ITEM INTERCEPTS FOR ALL SITUATIONS
             # EVEN FOR TYPE1 DATA
             mutate(RT = RT + ItemIntEffect + SubjIntEffect +
                      SimCond * SubjSlopeEffect +
@@ -200,7 +212,7 @@ full_ranefs_mm %beep% {
             add_gauss(UniqueItem,    ItemIntSD,   ItemIntEffect, bin2meanRT) %>%
             add_gauss(UniqueSubject, SubjSlopeSD, SubjSlopeEffect, bin2meanRT) %>%
             add_gauss(UniqueItem,    ItemSlopeSD, ItemSlopeEffect, bin2meanRT) %>%
-            # IMPORTANTLY THIS ADDS BY-SUBJ & ITEM INTERCEPTS FOR ALLLLLLLL SITUATIONS
+            # IMPORTANTLY THIS ADDS BY-SUBJ & ITEM INTERCEPTS FOR ALL SITUATIONS
             # EVEN FOR TYPE1 DATA
             mutate(RT = 10^(log10(RT) + ItemIntEffect + SubjIntEffect),
                    RT = add_in_log_space(RT, SimCond, 

@@ -50,4 +50,52 @@ loaded via a namespace (and not attached):
 [43] nlme_3.1-162      compiler_4.3.0 
 ```
 
-3) 
+3) 2020 Macbook Pro
+
+```
+R version 3.6.1 (2019-07-05)
+Platform: x86_64-apple-darwin15.6.0 (64-bit)
+Running under: macOS Catalina 10.15.7
+
+Matrix products: default
+BLAS:   /System/Library/Frameworks/Accelerate.framework/Versions/A/Frameworks/vecLib.framework/Versions/A/libBLAS.dylib
+LAPACK: /Library/Frameworks/R.framework/Versions/3.6/Resources/lib/libRlapack.dylib
+
+Random number generation:
+ RNG:     Mersenne-Twister 
+ Normal:  Inversion 
+ Sample:  Rounding 
+ 
+locale:
+[1] en_US.UTF-8/en_US.UTF-8/en_US.UTF-8/C/en_US.UTF-8/en_US.UTF-8
+
+attached base packages:
+[1] grid      stats     graphics  grDevices utils     datasets  methods   base     
+
+other attached packages:
+ [1] lme4_1.1-25       Matrix_1.2-18     broom.mixed_0.2.6 beepr_1.3        
+ [5] cs_0.1.7          furrr_0.1.0       future_1.19.1     forcats_0.5.0    
+ [9] stringr_1.4.0     dplyr_1.0.5       purrr_0.3.4       readr_1.3.1      
+[13] tidyr_1.1.2       tibble_3.0.3.9000 ggplot2_3.4.3     tidyverse_1.3.0  
+
+loaded via a namespace (and not attached):
+ [1] httr_1.4.2        jsonlite_1.7.1    splines_3.6.1     modelr_0.1.8     
+ [5] assertthat_0.2.1  statmod_1.4.34    blob_1.2.1        cellranger_1.1.0 
+ [9] yaml_2.2.1        remotes_2.2.0     globals_0.13.0    pillar_1.4.6     
+[13] backports_1.1.10  lattice_0.20-41   glue_1.4.2        digest_0.6.25    
+[17] rvest_0.3.6       minqa_1.2.4       colorspace_1.4-1  plyr_1.8.6       
+[21] pkgconfig_2.0.3   broom_0.7.2       listenv_0.8.0     haven_2.3.1      
+[25] scales_1.2.1      processx_3.4.4    generics_0.0.2    ellipsis_0.3.1   
+[29] withr_2.5.0       TMB_1.7.18        cli_3.6.1         magrittr_1.5     
+[33] crayon_1.3.4      readxl_1.3.1      ps_1.3.4          fs_1.5.0         
+[37] nlme_3.1-149      MASS_7.3-53       xml2_1.3.2        pkgbuild_1.1.0   
+[41] tools_3.6.1       prettyunits_1.1.1 hms_0.5.3         lifecycle_1.0.3  
+[45] munsell_0.5.0     reprex_0.3.0      callr_3.4.4       compiler_3.6.1   
+[49] rlang_1.1.1       nloptr_1.2.2.2    rstudioapi_0.11   zplyr_0.2.3.1    
+[53] boot_1.3-25       gtable_0.3.0      codetools_0.2-16  DBI_1.1.0        
+[57] curl_4.3          reshape2_1.4.4    R6_2.4.1          lubridate_1.7.9  
+[61] rprojroot_1.3-2   stringi_1.5.3     parallel_3.6.1    Rcpp_1.0.5       
+[65] vctrs_0.6.3       dbplyr_1.4.4      audio_0.1-7       tidyselect_1.1.0 
+[69] coda_0.19-4   
+
+```

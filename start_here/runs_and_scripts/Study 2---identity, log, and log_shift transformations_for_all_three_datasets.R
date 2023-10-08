@@ -1,6 +1,5 @@
 # Loading all the boilerplate. CHANGE PATH TO YOUR OWN DIRECTORY
-main_path = "/Users/tiflo/Library/CloudStorage/Box-Box/_Papers - Box/Power simulations for RTs/PowerSimulations/BurchillJaegerRTAnalysis/start_here/"
-# main_path = "/Users/zburchill/Box Sync/Power simulations for RTs/PowerSimulations/BurchillJaegerRTAnalysis/start_here/"
+main_path = "/Users/YYY/BurchillJaegerRTAnalysis/start_here/"
 
 # Run this to load all the right libraries and get all the right constants for the scripts
 source(paste0(main_path, "functions/boilerplate.R"))
@@ -25,8 +24,11 @@ min_shift_setter <- function(df) {
 }
 
 
-# Attention: because the NSC data is different enough from the HS18 and F13 data, this script separates them into different runs. We first cover the HS18 and F13, then NSC.
-# It also breaks things up into pre-residualized data, then residualized, then 3-word regions
+# Attention: because the NSC data is different enough from the HS18 and 
+#  F13 data, this script separates them into different runs. We first cover 
+#  the HS18 and F13, then NSC.
+# It also breaks things up into pre-residualized data, then residualized, 
+#  then 3-word regions
 
 
 # -----------------------------------------------------
@@ -39,7 +41,7 @@ sfetal_giant_mm_df <- tidyr::crossing(
   Nsubj = c(8, 16, 32, 64),
   # iprefix = c("same_across_subj", "same_across_subj_noexcl"),
   iprefix = c("same_across_subj_new", "same_across_subj_noexcl_new"),
-  EffectSize = c(56, 80), # got rid of the 7*2^x
+  EffectSize = c(56, 80), 
   Space = c(""),
   RType = c("unresidualized"),
   Dataset = c("setal","fetal")) %>%
@@ -154,7 +156,11 @@ sfetal_giant_load
 # Doing the residualized models ######################################################################
 ######################################################################################################
 
-# This data frame is for the residualized BATAs. Due to the increased size of the BATAs (because they have ~15x more data due to the fillers) and due to the fact that many more models are run per BATA (we have residualize so many different ways), we break down the number of BATAs per file. Feel free to adjust the `residual_total_files` variable to whatever you see fit.
+# This data frame is for the residualized BATAs. Due to the increased size of the 
+#  BATAs (because they have ~15x more data due to the fillers) and due to the fact 
+#  that many more models are run per BATA (we have residualize so many different ways), 
+#  we break down the number of BATAs per file. Feel free to adjust the `residual_total_files` 
+#  variable to whatever you see fit.
 sfetal_resid_mm_df <- tidyr::crossing(
   FillerItemRatio = 15,
   MinK = 1, MaxK = 1,
@@ -211,7 +217,8 @@ sfetal_resid_bb <- {
           df = real_df, k = k_e,
           filter_quosures = filterers,
           # The function and its named additional arguments
-          single_sample_df_function = same_items_per_subj_with_fillers, # Note that we use a different sampling function here
+          # Note that we use a different sampling function here
+          single_sample_df_function = same_items_per_subj_with_fillers, 
           items_per_subj = BBitems,
           n_subj = Nsubj,
           n_critical_items = Nitems)
@@ -231,10 +238,10 @@ resid_mm_l <- {
     function(zaa) {
       effect_size <- EffectSize
       model_funcs <- safe_residual_no_slopes_no_subject_w_logshift
-
       
-      
-      # Establish adding functions. This is a LOOOOT bigger than before because a LOT of pre-processing needs to be done to residualize things. We add the effects, then residualize for each time of analysis.
+      # Establish adding functions. This is a lot larger than before because a 
+      #  LOT of pre-processing needs to be done to residualize things. We add the 
+      #  effects, then residualize for each time of analysis.
       adder_f <- function(df) {
         mutate(df, SimCond = ifelse(ItemType=="CriticalRegion", SimCond, 0)) %>%
           mutate(logRT = log10(RT),
@@ -354,7 +361,7 @@ sfetal_region_bb <- {
           k = k_e,
           filter_quosures = filterers,
           # The function and its named additional arguments
-          single_sample_df_function = same_items_per_subj_for_residualized_regions_free_order, #same_items_per_subj_for_residualized_regions,
+          single_sample_df_function = same_items_per_subj_for_residualized_regions_free_order,
           critical_regions_per_subj = Nitems,
           filler_items_per_subj = FillerItems,
           n_subj = Nsubj,

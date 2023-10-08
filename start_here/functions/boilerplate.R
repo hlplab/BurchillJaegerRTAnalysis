@@ -1,14 +1,17 @@
 
 # Libraries ----------------------------------------
-remotes::install_github("burchill/zplyr")
-remotes::install_github("burchill/cs")
-
 library(tidyverse)
 library(future)
 library(furrr)
 library(cs)
 library(beepr)
 library(broom.mixed) # need to load this for weird S3 reasons
+
+if (!rlang::is_installed("zplyr"))
+  remotes::install_github("burchill/zplyr")
+if (!rlang::is_installed("cs"))
+  remotes::install_github("burchill/cs")
+
 
 
 # Constants ------------------------------------
