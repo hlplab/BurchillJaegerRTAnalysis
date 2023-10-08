@@ -1,8 +1,23 @@
-# Saving the models that will be used to generate parametric data ----------------
+## ---------------------------------------------------------------------------------------------
+# This script saves the specifications for the LMEs that will be used to generate parametric data 
+## ---------------------------------------------------------------------------------------------
 
-# Calculated manually
+# This lists stores for each of the three data (nsc, setal, fetal) some of the parameters that
+# are used in the transformations of RTs prior to fitting an LMM to the (transformed) source data.
+# These LMMs are then used to parametrically generate data sets in our simulations (for details,
+# see text). The quantities in the code below (e.g., 15centile_shifted_para) were calculated 
+# manually from the source data.
+#
+# This parameter is required for the log-shift transformation.
 mins_and_percentiles <- list(
   "nsc" = list(
+    # For each source data, we fit parametric models to the pre- and post-exclusion data (noexcl 
+    # and excl). We originally considered two versions of the log-shift model: one that used the 
+    # minimum RT - 1 (but at least 0) as the lower bound, and one that used the lower 15th 
+    # percentile of RTs as the lower bound. We only reported the former in the paper since the 
+    # latter was primarily intended as a sanity check (and indeed never performed better). We 
+    # include the latter here, so that potential users of the script can see how different lower
+    # bounds can be specified for the log-shift transformation.
     "noexcl" = list(
       "min_shifted_para" = 0,
       "15centile_shifted_para" = 35
@@ -34,6 +49,7 @@ mins_and_percentiles <- list(
   )
 )
 
+# This specifies where the source data files (pre- and post-exclusion can be found)
 og_data_paths <- list(
   "nsc" = list(
     "excl"   = paste0(nsc_file_path, nsc_df_file),
@@ -49,6 +65,8 @@ og_data_paths <- list(
   )
 )
 
+# This specifies the parametric distributions that we are considering in Study 1 to 
+# generate data.
 distributions <- c(
   "gaussian_para",
   "lognormal_para",
@@ -57,6 +75,13 @@ distributions <- c(
   "15centile_shifted_para",
   "reciprocal_para"
 )
+
+# Inverse functions for each distribution are required since our studies---following the 
+# most common parametric analysis and simulation approaches in the field---do NOT actually
+# use GLMMs with the above outcome distributions but rather use LMMs over RTs that have 
+# been transformed by the link function of the GLMM. In order to transform the generated 
+# transformed RTs back into raw RTs (e.g., for subsequent analysis by various analysis 
+# approaches), we specify the inverse link functions for each parametric model.
 get_inverse_function <- function(distro, dataset, w_excl) {
   excl_name <- ifelse(w_excl, "excl", "noexcl")
   possible_shifts <-mins_and_percentiles[[dataset]][[excl_name]]
@@ -73,6 +98,8 @@ get_inverse_function <- function(distro, dataset, w_excl) {
   return(fn)
 }
 
+# Fit each model to the source data. These models are later used to generate new RT data 
+# based on the parametric assumptions they represent.
 save_if_necessary <- function(distro, dataset, w_excl,
                               return_filename = FALSE) {
   excl_name <- ifelse(w_excl, "excl", "noexcl")
@@ -116,9 +143,3 @@ for (distro in distributions) {
     }
   }
 }
-
-
-
-
-
-
