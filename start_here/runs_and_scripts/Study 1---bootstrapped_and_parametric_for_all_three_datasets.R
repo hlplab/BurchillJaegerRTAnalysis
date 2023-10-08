@@ -83,7 +83,8 @@ remaining_all_natch_bb_files <- remaining_files(all_natch_bb_df, file.exists(bb_
 
 # Here we have the call that will create all the BB dfs for the previous data frame
 all_bb <- {
-  iterate_over_df(  # Go through all the runs in the table
+  # Go through all the runs in the table
+  iterate_over_df(  
     remaining_all_natch_bb_files,
     # `future_map()`` is from `furrr` and runs these jobs in paralell; `future_cnd_map()` 
     # is from `cs` and does the same thing but catches raised conditions so we can see errors, 
@@ -91,7 +92,7 @@ all_bb <- {
     # necessary, but `future` and `furrr` have come a long way since then and now likely have 
     # ways of doing something similar
     future_cnd_map,  
-    # 'zaza' is just a dummy kwarg for NSE; ignore it
+    # 'zaza' is just a dummy kwarg for NSE. You can ignore it.
     function(zaza) {  
       words_per_region = 1
       k <- MinK:MaxK
@@ -100,6 +101,13 @@ all_bb <- {
       # Filtering that will be used for HS18 and F13 BATAs
       filterers <- quos(Group == "Filler-first") 
 
+      # The HS18 and F13 share similar structure (e.g., they are both the outcome of factorial
+      # experiments that cross repeated measures of participants and items). We thus developed 
+      # a number of functions that contain the code that would otherwise be shared between the 
+      # simulations for these two source data. The NSC data differs from the F13 and HS18 data 
+      # (e.g., it is a corpus withe different repeated measures structure, see paper for 
+      # details). We hence capture this special case, and code the treatement of NSC data here,
+      # rather than in separate functions.
       if (Dataset == "nsc") {
         # Setting this manually, but we could have used the parameter in the df
         Nstories <- 4
@@ -139,12 +147,7 @@ all_bb <- {
         "done!"
       } else {
         
-        # Because HS18 and F13 are so similar (and because I started with those datasets), more 
-        # of their code is tucked away in pre-made functions. The NSC data differs just enough 
-        # from the F13 and HS18 data that it doesn't fit into the pre-made functions. Hence, we
-        # spell out the code for NSC simulations more explicitly in the script itself.
-        # 
-        # Also, `zplyr::collect_all()` essentially just collects all the errors, messages, and 
+        #`zplyr::collect_all()` essentially just collects all the errors, messages, and 
         # warnings raised in executing the code it contains, making sure a single error doesn't 
         # derail the entire set of runs. This means that when all_bb is executed below, it will
         # return a long slew of messages and warnings, collected from the different workers. 
@@ -229,7 +232,7 @@ para_all_bb
 
 # Parametric MM dfs -----------------------------------------------------------------
 
-# Here we start generating the `mm` files that contain model results
+# Here we start generating the `mm` files that contain model results.
 remaining_para_all_mm_files <- remaining_files(para_all_mm_df, file.exists(mm_file))
 # Saves MM files
 para_all_mm <- {
